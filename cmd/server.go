@@ -139,14 +139,8 @@ func runServer(config *waitingroom.Config) error {
 		redisc,
 	)
 
-	queueEnable := waitingroom.NewQueueEnable(
-		config,
-		redisc,
-	)
-
 	e.GET("/status", healthCheck)
-	e.GET("/queues/:domain", queueConfirmation.Do)
-	e.POST("/queues/enable/:domain", queueEnable.Do)
+	e.POST("/queues/:domain", queueConfirmation.Do)
 	go func() {
 		if err := e.Start(config.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server", err)
