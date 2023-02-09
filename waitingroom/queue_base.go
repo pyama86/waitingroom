@@ -9,6 +9,7 @@ import (
 
 const waitingInfoCookieKey = "waiting-room"
 const paramDomainKey = "domain"
+const enableDomainKey = "queue-domains"
 
 // Error Apiのエラーを定義する構造体
 type Error struct {
@@ -52,14 +53,14 @@ func (q *QueueBase) setWaitingInfoCookie(c echo.Context, waitingInfo *WaitingInf
 	return nil
 }
 
-func (q *QueueBase) hostSerialNumberKey(c echo.Context) string {
-	return c.Param(paramDomainKey) + "_serial_no"
+func (q *QueueBase) hostCurrentNumberKey(c echo.Context) string {
+	return c.Param(paramDomainKey) + "_current_no"
 }
 
-func (q *QueueBase) hostAllowedNumberKey(c echo.Context) string {
-	return c.Param(paramDomainKey) + "_allowed_no"
+func (q *QueueBase) allowNoKey(c echo.Context) string {
+	return c.Param(paramDomainKey) + "_allow_no"
 }
 
-func (q *QueueBase) enableDomainKey(c echo.Context) string {
-	return c.Param(paramDomainKey) + "_enable"
+func (q *QueueBase) lockAllowNoKey(domain string) string {
+	return domain + "_lock_allow_no"
 }

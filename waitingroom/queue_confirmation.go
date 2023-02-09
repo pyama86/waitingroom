@@ -33,7 +33,7 @@ func NewQueueConfirmation(
 
 func (p *QueueConfirmation) isAllowedConnection(c echo.Context, waitingInfo *WaitingInfo) bool {
 	// ドメインでqueueが有効ではないので制限されていない
-	if _, err := p.cache.Get(c.Request().Context(), p.enableDomainKey(c)); err == redis.Nil {
+	if _, err := p.cache.Get(c.Request().Context(), p.allowNoKey(c)); err == redis.Nil {
 		return true
 	}
 
@@ -68,7 +68,7 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 }
 func (p *QueueConfirmation) getAllowedNo(c echo.Context) (int64, error) {
 	// 現在許可されている通り番号
-	v, err := p.cache.Get(c.Request().Context(), p.hostAllowedNumberKey(c))
+	v, err := p.cache.Get(c.Request().Context(), p.allowNoKey(c))
 	if err != nil {
 		return 0, err
 	}
@@ -96,7 +96,7 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 		waitingInfo.EntryTimestamp = time.Now().Unix()
 	} else if waitingInfo.EntryTimestamp != 0 &&
 		waitingInfo.EntryTimestamp+p.config.EntryDelaySec < time.Now().Unix() {
-		v := p.redisClient.Incr(c.Request().Context(), p.hostSerialNumberKey(c))
+		v := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c))
 		if v.Err() != nil {
 			return v.Err()
 		}
@@ -108,13 +108,13 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 func (p *QueueConfirmation) enableQueue(c echo.Context) error {
 	// ドメインをキューの対象にする
 	if c.FormValue("enable") != "" {
-		// 有効になっているドメインの個別キー
-		r := p.redisClient.Set(c.Request().Context(),
-			p.enableDomainKey(c), "1",
-			time.Duration(p.config.QueueEnableSec)*time.Second)
-		if err := r.Err(); err != nil {
-			return err
-		}
+		pipe := p.redisClient.Pipeline()
+		pipe.SetNX(c.Request().Context(), p.allowNoKey(c), "1", 0)
+		pipe.Expire(c.Request().Context(),
+			p.allowNoKey(c), time.Duration(p.config.QueueEnableSec)*time.Second)
+		pipe.SAdd(c.Request().Context(), enableDomainKey, c.Param(paramDomainKey))
+		_, err := pipe.Exec(c.Request().Context())
+		return err
 	}
 	return nil
 }

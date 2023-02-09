@@ -19,11 +19,13 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 		redisClient *redis.Client
 	}
 	tests := []struct {
-		name    string
-		key     string
-		fields  fields
-		c       echo.Context
-		wantErr bool
+		name       string
+		key        string
+		want       string
+		fields     fields
+		c          echo.Context
+		beforeHook func(string, *redis.Client)
+		wantErr    bool
 	}{
 		{
 			name: "ok",
@@ -34,6 +36,23 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 						QueueEnableSec: 600,
 					},
 				},
+			},
+			want:    "1",
+			wantErr: false,
+		},
+		{
+			name: "don't overrite allow_no",
+			key:  string(securecookie.GenerateRandomKey(64)),
+			fields: fields{
+				QueueBase: QueueBase{
+					config: &Config{
+						QueueEnableSec: 600,
+					},
+				},
+			},
+			want: "2",
+			beforeHook: func(key string, redisClient *redis.Client) {
+				redisClient.Set(context.Background(), key+"_allow_no", "2", 0)
 			},
 			wantErr: false,
 		},
@@ -53,15 +72,24 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 			c.SetParamNames("domain")
 			c.SetParamValues(tt.key)
 
+			if tt.beforeHook != nil {
+				tt.beforeHook(tt.key, redisClient)
+			}
+
 			if err := p.enableQueue(c); (err != nil) != tt.wantErr {
 				t.Errorf("QueueConfirmation.enableQueue() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			rv := redisClient.Get(c.Request().Context(), tt.key+"_enable")
+			rv := redisClient.Get(c.Request().Context(), tt.key+"_allow_no")
 			if rv.Err() != nil {
 				t.Errorf("got error %v", rv.Err())
 			}
-			ev := redisClient.TTL(c.Request().Context(), tt.key+"_enable")
+
+			if rv.Val() != tt.want {
+				t.Errorf("miss match value got:%v want:%v", rv.Val(), tt.want)
+			}
+
+			ev := redisClient.TTL(c.Request().Context(), tt.key+"_allow_no")
 			if ev.Err() != nil {
 				t.Errorf("got error %v", ev.Err())
 			}
@@ -69,6 +97,10 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 				t.Errorf("got ttl %v", ev.Val())
 			}
 
+			sv := redisClient.SIsMember(c.Request().Context(), enableDomainKey, tt.key)
+			if !sv.Val() {
+				t.Errorf("%v is not enabled", tt.key)
+			}
 		})
 	}
 }
@@ -121,7 +153,7 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 			name: "keep waiting",
 			key:  string(securecookie.GenerateRandomKey(64)),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+"_enable", "", 5*time.Second)
+				redisClient.SetEX(context.Background(), key+"_allow_no", "", 5*time.Second)
 				redisClient.Del(context.Background(), key)
 			},
 			waitingInfo: &WaitingInfo{
@@ -133,7 +165,7 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 			name: "allowed",
 			key:  string(securecookie.GenerateRandomKey(64)),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+"_enable", "", 5*time.Second)
+				redisClient.SetEX(context.Background(), key+"_allow_no", "", 5*time.Second)
 				redisClient.SetEX(context.Background(), key, "", 5*time.Second)
 			},
 			waitingInfo: &WaitingInfo{
@@ -271,7 +303,7 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 			name: "ok",
 			key:  string(securecookie.GenerateRandomKey(64)),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+"_allowed_no", 10, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_allow_no", 10, 10*time.Second)
 			},
 			want:    10,
 			wantErr: false,
