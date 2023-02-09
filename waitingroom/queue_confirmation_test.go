@@ -61,6 +61,14 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 			if rv.Err() != nil {
 				t.Errorf("got error %v", rv.Err())
 			}
+			ev := redisClient.TTL(c.Request().Context(), tt.key+"_enable")
+			if ev.Err() != nil {
+				t.Errorf("got error %v", ev.Err())
+			}
+			if ev.Val() != 600*time.Second {
+				t.Errorf("got ttl %v", ev.Val())
+			}
+
 		})
 	}
 }
@@ -295,6 +303,128 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("QueueConfirmation.getAllowedNo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestQueueConfirmation_allowAccess(t *testing.T) {
+	type fields struct {
+		QueueBase   QueueBase
+		cache       *Cache
+		redisClient *redis.Client
+	}
+	tests := []struct {
+		name        string
+		key         string
+		fields      fields
+		waitingInfo *WaitingInfo
+		wantErr     bool
+	}{
+		{
+			name: "ok",
+			waitingInfo: &WaitingInfo{
+				ID: string(securecookie.GenerateRandomKey(64)),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			redisClient := redis.NewClient(&redis.Options{
+				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
+			})
+
+			p := &QueueConfirmation{
+				QueueBase: QueueBase{
+					config: &Config{
+						AllowedAccessSec: 10,
+					},
+				},
+				cache:       NewCache(redisClient, &Config{}),
+				redisClient: redisClient,
+			}
+
+			c, _ := testContext("/", http.MethodPost, map[string]string{})
+			if err := p.allowAccess(c, tt.waitingInfo); (err != nil) != tt.wantErr {
+				t.Errorf("QueueConfirmation.allowAccess() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			ev := redisClient.TTL(c.Request().Context(), tt.waitingInfo.ID)
+			if ev.Err() != nil {
+				t.Errorf("got error %v", ev.Err())
+			}
+			if ev.Val() != 10*time.Second {
+				t.Errorf("got ttl %v", ev.Val())
+			}
+
+		})
+	}
+}
+
+func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
+	tests := []struct {
+		name             string
+		waitingInfo      *WaitingInfo
+		wantSerialNumber int64
+		wantErr          bool
+	}{
+		{
+			name:        "nothing ID",
+			waitingInfo: &WaitingInfo{},
+			wantErr:     false,
+		},
+		{
+			name: "entry now",
+			waitingInfo: &WaitingInfo{
+				EntryTimestamp: time.Now().Unix(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "entry before 11sec",
+			waitingInfo: &WaitingInfo{
+				ID:             "dummy",
+				EntryTimestamp: time.Now().Unix() - 11,
+			},
+			wantSerialNumber: 1,
+			wantErr:          false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			redisClient := redis.NewClient(&redis.Options{
+				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
+			})
+
+			p := &QueueConfirmation{
+				QueueBase: QueueBase{
+					config: &Config{
+						EntryDelaySec: 10,
+					},
+				},
+				cache:       NewCache(redisClient, &Config{}),
+				redisClient: redisClient,
+			}
+
+			c, _ := testContext("/", http.MethodPost, map[string]string{})
+			c.SetPath("/queues/:domain")
+			c.SetParamNames("domain")
+			c.SetParamValues(string(securecookie.GenerateRandomKey(64)))
+			if err := p.takeNumberIfPossible(c, tt.waitingInfo); (err != nil) != tt.wantErr {
+				t.Errorf("QueueConfirmation.takeNumberIfPossible() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.waitingInfo.ID == "" {
+				t.Error("QueueConfirmation.takeNumberIfPossible() ID is empty")
+			}
+
+			if tt.waitingInfo.EntryTimestamp == 0 {
+				t.Error("QueueConfirmation.takeNumberIfPossible() EntryTimestamp is zero")
+			}
+
+			if tt.waitingInfo.SerialNumber != tt.wantSerialNumber {
+				t.Errorf("QueueConfirmation.takeNumberIfPossible() got seriarl numver %d want %d", tt.waitingInfo.SerialNumber, tt.wantSerialNumber)
 			}
 		})
 	}

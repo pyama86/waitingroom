@@ -1,6 +1,7 @@
 package waitingroom
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -83,7 +84,9 @@ func (p *QueueConfirmation) allowAccess(c echo.Context, waitingInfo *WaitingInfo
 	return v.Err()
 }
 
-func (p *QueueConfirmation) buildWaitingInfo(c echo.Context, waitingInfo *WaitingInfo) error {
+// エントリー時間から指定秒数経過していれば採番する
+// 指定秒数待つのは多重にリクエストされた場合を想定して、クッキーがひとつに収束するのを待つ
+func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *WaitingInfo) error {
 	if waitingInfo.ID == "" {
 		u, err := uuid.NewRandom()
 		if err != nil {
@@ -92,7 +95,7 @@ func (p *QueueConfirmation) buildWaitingInfo(c echo.Context, waitingInfo *Waitin
 		waitingInfo.ID = u.String()
 		waitingInfo.EntryTimestamp = time.Now().Unix()
 	} else if waitingInfo.EntryTimestamp != 0 &&
-		waitingInfo.EntryTimestamp+p.config.EntryDelaySec*int64(time.Second) < time.Now().Unix() {
+		waitingInfo.EntryTimestamp+p.config.EntryDelaySec < time.Now().Unix() {
 		v := p.redisClient.Incr(c.Request().Context(), p.hostSerialNumberKey(c))
 		if v.Err() != nil {
 			return v.Err()
@@ -123,7 +126,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 
 	if p.isAllowedConnection(c, waitingInfo) {
-		return c.String(http.StatusOK, "ok")
+		return c.JSON(http.StatusOK, "")
 	}
 
 	// キューの有効時間更新
@@ -131,29 +134,33 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, " can't get waiting info")
 	}
 
+	var allowedNo int64
+	var serialNo int
 	// 採番されていない
 	if waitingInfo.SerialNumber == 0 {
-		if err := p.buildWaitingInfo(c, waitingInfo); err != nil {
+		if err := p.takeNumberIfPossible(c, waitingInfo); err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't build waiting info")
 		}
 	} else {
-		allowedNo, err := p.getAllowedNo(c)
+		an, err := p.getAllowedNo(c)
 		if err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't get allowed no")
 		}
 
+		allowedNo = an
 		// 許可されたとおり番号以上の値を持っている
 		if allowedNo > waitingInfo.SerialNumber {
 			if err := p.allowAccess(c, waitingInfo); err != nil {
 				NewError(http.StatusInternalServerError, err, " can't set allowed key")
 			}
-			return c.String(http.StatusOK, "ok")
+			return c.JSON(http.StatusOK, "")
 		}
+		serialNo = int(waitingInfo.SerialNumber)
 	}
 	err = p.setWaitingInfoCookie(c, waitingInfo)
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err, "can't save waiting info")
 	}
 
-	return c.String(http.StatusTooManyRequests, "please waiting")
+	return c.String(http.StatusTooManyRequests, fmt.Sprintf(`{"serial_no": %d, "allowed_no": %d }`, serialNo, allowedNo))
 }
