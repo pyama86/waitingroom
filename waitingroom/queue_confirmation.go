@@ -112,7 +112,13 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 
 func (p *QueueConfirmation) enableQueue(c echo.Context) error {
 	// ドメインをキューの対象にする
-	if c.FormValue("enable") != "" {
+	postParam := struct {
+		Enable string `json:enable`
+	}{}
+	if err := c.Bind(&postParam); err != nil {
+		return err
+	}
+	if postParam.Enable != "" {
 		pipe := p.redisClient.Pipeline()
 		pipe.SetNX(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey)), "1", 0)
 		pipe.Expire(c.Request().Context(),
@@ -130,13 +136,13 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, " can't build waiting info")
 	}
 
-	if p.isAllowedConnection(c, waitingInfo) {
-		return c.JSON(http.StatusOK, "")
-	}
-
 	// キューの有効時間更新
 	if err := p.enableQueue(c); err != nil {
 		return NewError(http.StatusInternalServerError, err, " can't get waiting info")
+	}
+
+	if p.isAllowedConnection(c, waitingInfo) {
+		return c.JSON(http.StatusOK, "allowed connection")
 	}
 
 	var allowedNo int64
@@ -158,7 +164,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 			if err := p.allowAccess(c, waitingInfo); err != nil {
 				NewError(http.StatusInternalServerError, err, " can't set allowed key")
 			}
-			return c.JSON(http.StatusOK, "")
+			return c.JSON(http.StatusOK, "allow connection")
 		}
 		serialNo = int(waitingInfo.SerialNumber)
 	}

@@ -29,6 +29,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -104,7 +105,9 @@ var serverCmd = &cobra.Command{
 
 func runServer(config *waitingroom.Config) error {
 	e := echo.New()
-	var ctx = context.Background()
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	redisDB := 0
 	if os.Getenv("REDIS_DB") != "" {
@@ -141,19 +144,34 @@ func runServer(config *waitingroom.Config) error {
 
 	e.GET("/status", healthCheck)
 	e.POST("/queues/:domain", queueConfirmation.Do)
+
 	go func() {
 		if err := e.Start(config.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server", err)
 		}
+	}()
 
+	go func() {
+		ac := waitingroom.NewAccessController(
+			config,
+			redisc,
+		)
+		for {
+			if err := ac.Do(ctx); err != nil && err != redis.Nil {
+				e.Logger.Error("error allow worker", err)
+				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+				break
+			}
+			time.Sleep(time.Duration(config.AllowIntervalSec) * time.Second)
+		}
 	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := e.Shutdown(ctx); err != nil {
+	qctx, qcancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer qcancel()
+	if err := e.Shutdown(qctx); err != nil {
 		return err
 	}
 	return nil

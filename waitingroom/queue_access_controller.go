@@ -2,12 +2,10 @@ package waitingroom
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/k0kubun/pp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -48,8 +46,6 @@ func (a *AccessController) Do(ctx context.Context) error {
 		if err == redis.Nil {
 			return nil
 		}
-		fmt.Println(0)
-		pp.Println(err)
 		return err
 	}
 
