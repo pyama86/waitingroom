@@ -76,12 +76,12 @@ func (p *QueueConfirmation) getAllowedNo(c echo.Context) (int64, error) {
 }
 
 func (p *QueueConfirmation) allowAccess(c echo.Context, waitingInfo *WaitingInfo) error {
-	v := p.redisClient.SetEX(c.Request().Context(),
+	_, err := p.redisClient.SetEX(c.Request().Context(),
 		waitingInfo.ID,
 		strconv.FormatInt(waitingInfo.SerialNumber, 10),
 		time.Duration(p.config.AllowedAccessSec)*time.Second,
-	)
-	return v.Err()
+	).Result()
+	return err
 }
 
 // エントリー時間から指定秒数経過していれば採番する
@@ -93,14 +93,26 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 			return err
 		}
 		waitingInfo.ID = u.String()
-		waitingInfo.EntryTimestamp = time.Now().Unix()
-	} else if waitingInfo.EntryTimestamp != 0 &&
-		waitingInfo.EntryTimestamp+p.config.EntryDelaySec < time.Now().Unix() {
-		v := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c))
-		if v.Err() != nil {
-			return v.Err()
+		ok, err := p.redisClient.SetNX(c.Request().Context(), p.hostDelayTakeNumberKey(c), "1", 0).Result()
+		if err != nil {
+			return err
 		}
-		waitingInfo.SerialNumber = v.Val()
+
+		if ok {
+			_, err := p.redisClient.Expire(c.Request().Context(),
+				p.hostDelayTakeNumberKey(c), time.Duration(p.config.EntryDelaySec)*time.Second).Result()
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if _, err := p.cache.Get(c.Request().Context(), p.hostDelayTakeNumberKey(c)); err == redis.Nil {
+			v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c)).Result()
+			if err != nil {
+				return err
+			}
+			waitingInfo.SerialNumber = v
+		}
 	}
 	return nil
 }

@@ -210,9 +210,8 @@ func TestQueueConfirmation_parseWaitingInfoByCookie(t *testing.T) {
 		{
 			name: "ok",
 			want: &WaitingInfo{
-				ID:             "1",
-				EntryTimestamp: 2,
-				SerialNumber:   3,
+				ID:           "1",
+				SerialNumber: 3,
 			},
 			getEncodedCookie: func(sc *securecookie.SecureCookie, w *WaitingInfo) string {
 				encoded, _ := sc.Encode(waitingInfoCookieKey, w)
@@ -407,17 +406,15 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "entry now",
-			waitingInfo: &WaitingInfo{
-				EntryTimestamp: time.Now().Unix(),
-			},
-			wantErr: false,
+			name:             "entry now",
+			waitingInfo:      &WaitingInfo{},
+			wantSerialNumber: 0,
+			wantErr:          false,
 		},
 		{
 			name: "entry before 11sec",
 			waitingInfo: &WaitingInfo{
-				ID:             "dummy",
-				EntryTimestamp: time.Now().Unix() - 11,
+				ID: string(securecookie.GenerateRandomKey(64)),
 			},
 			wantSerialNumber: 1,
 			wantErr:          false,
@@ -451,12 +448,8 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 				t.Error("QueueConfirmation.takeNumberIfPossible() ID is empty")
 			}
 
-			if tt.waitingInfo.EntryTimestamp == 0 {
-				t.Error("QueueConfirmation.takeNumberIfPossible() EntryTimestamp is zero")
-			}
-
 			if tt.waitingInfo.SerialNumber != tt.wantSerialNumber {
-				t.Errorf("QueueConfirmation.takeNumberIfPossible() got seriarl numver %d want %d", tt.waitingInfo.SerialNumber, tt.wantSerialNumber)
+				t.Errorf("QueueConfirmation.takeNumberIfPossible() got seriarl number %d want %d", tt.waitingInfo.SerialNumber, tt.wantSerialNumber)
 			}
 		})
 	}

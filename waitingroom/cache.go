@@ -27,11 +27,16 @@ func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 		return v.(string), nil
 	}
 
-	rv := c.redisClient.Get(ctx, key)
-	if rv.Err() != nil {
-		return "", rv.Err()
+	rv, err := c.redisClient.Get(ctx, key).Result()
+	if err != nil {
+		return "", err
 	}
 
-	c.cache.Set(key, rv.Val(), gocache.DefaultExpiration)
-	return rv.Val(), nil
+	tv, err := c.redisClient.TTL(ctx, key).Result()
+	if err != nil {
+		return "", err
+	}
+
+	c.cache.Set(key, rv, tv*time.Second)
+	return rv, nil
 }

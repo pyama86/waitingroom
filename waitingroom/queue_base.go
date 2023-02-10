@@ -57,6 +57,10 @@ func (q *QueueBase) hostCurrentNumberKey(c echo.Context) string {
 	return c.Param(paramDomainKey) + "_current_no"
 }
 
+func (q *QueueBase) hostDelayTakeNumberKey(c echo.Context) string {
+	return c.Param(paramDomainKey) + "_delay"
+}
+
 func (q *QueueBase) allowNoKey(c echo.Context) string {
 	return c.Param(paramDomainKey) + "_allow_no"
 }
