@@ -1,8 +1,11 @@
 package waitingroom
 
 import (
+	"context"
 	"net/http"
+	"strconv"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
 )
@@ -11,28 +14,11 @@ const waitingInfoCookieKey = "waiting-room"
 const paramDomainKey = "domain"
 const enableDomainKey = "queue-domains"
 
-// Error Apiのエラーを定義する構造体
-type Error struct {
-	StatusCode int
-	Message    string
-	RawErr     error
-}
-
-// Error Errorインターフェースの必須定義メソッド
-func (err *Error) Error() string {
-	if err.RawErr != nil {
-		return err.RawErr.Error()
-	}
-	return err.Message
-}
-
-func (err *Error) Unwrap() error {
-	return err.RawErr
-}
-
 type QueueBase struct {
-	sc     *securecookie.SecureCookie
-	config *Config
+	sc          *securecookie.SecureCookie
+	cache       *Cache
+	redisClient *redis.Client
+	config      *Config
 }
 
 func (q *QueueBase) setWaitingInfoCookie(c echo.Context, waitingInfo *WaitingInfo) error {
@@ -61,10 +47,19 @@ func (q *QueueBase) hostDelayTakeNumberKey(c echo.Context) string {
 	return c.Param(paramDomainKey) + "_delay"
 }
 
-func (q *QueueBase) allowNoKey(c echo.Context) string {
-	return c.Param(paramDomainKey) + "_allow_no"
+func (q *QueueBase) allowNoKey(domain string) string {
+	return domain + "_allow_no"
 }
 
 func (q *QueueBase) lockAllowNoKey(domain string) string {
 	return domain + "_lock_allow_no"
+}
+
+func (q *QueueBase) getAllowedNo(ctx context.Context, domain string) (int64, error) {
+	// 現在許可されている通り番号
+	v, err := q.cache.Get(ctx, q.allowNoKey(domain))
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseInt(v, 10, 64)
 }

@@ -15,8 +15,6 @@ import (
 
 type QueueConfirmation struct {
 	QueueBase
-	cache       *Cache
-	redisClient *redis.Client
 }
 
 func NewQueueConfirmation(
@@ -25,15 +23,18 @@ func NewQueueConfirmation(
 	redisClient *redis.Client,
 ) *QueueConfirmation {
 	return &QueueConfirmation{
-		QueueBase:   QueueBase{sc: sc, config: config},
-		redisClient: redisClient,
-		cache:       NewCache(redisClient, config),
+		QueueBase: QueueBase{
+			sc:          sc,
+			config:      config,
+			redisClient: redisClient,
+			cache:       NewCache(redisClient, config),
+		},
 	}
 }
 
 func (p *QueueConfirmation) isAllowedConnection(c echo.Context, waitingInfo *WaitingInfo) bool {
 	// ドメインでqueueが有効ではないので制限されていない
-	if _, err := p.cache.Get(c.Request().Context(), p.allowNoKey(c)); err == redis.Nil {
+	if _, err := p.cache.Get(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey))); err == redis.Nil {
 		return true
 	}
 
@@ -65,14 +66,6 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 	}
 	return &waitingInfo, nil
 
-}
-func (p *QueueConfirmation) getAllowedNo(c echo.Context) (int64, error) {
-	// 現在許可されている通り番号
-	v, err := p.cache.Get(c.Request().Context(), p.allowNoKey(c))
-	if err != nil {
-		return 0, err
-	}
-	return strconv.ParseInt(v, 10, 64)
 }
 
 func (p *QueueConfirmation) allowAccess(c echo.Context, waitingInfo *WaitingInfo) error {
@@ -121,9 +114,9 @@ func (p *QueueConfirmation) enableQueue(c echo.Context) error {
 	// ドメインをキューの対象にする
 	if c.FormValue("enable") != "" {
 		pipe := p.redisClient.Pipeline()
-		pipe.SetNX(c.Request().Context(), p.allowNoKey(c), "1", 0)
+		pipe.SetNX(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey)), "1", 0)
 		pipe.Expire(c.Request().Context(),
-			p.allowNoKey(c), time.Duration(p.config.QueueEnableSec)*time.Second)
+			p.allowNoKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second)
 		pipe.SAdd(c.Request().Context(), enableDomainKey, c.Param(paramDomainKey))
 		_, err := pipe.Exec(c.Request().Context())
 		return err
@@ -154,7 +147,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 			return NewError(http.StatusInternalServerError, err, " can't build waiting info")
 		}
 	} else {
-		an, err := p.getAllowedNo(c)
+		an, err := p.getAllowedNo(c.Request().Context(), c.Param(paramDomainKey))
 		if err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't get allowed no")
 		}

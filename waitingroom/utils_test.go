@@ -1,13 +1,18 @@
 package waitingroom
 
 import (
+	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 )
 
+func init() {
+	logrus.SetOutput(ioutil.Discard)
+}
 func testContext(path, method string, params map[string]string) (echo.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
 	values := make(url.Values)

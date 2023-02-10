@@ -63,9 +63,10 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 		})
 
 		t.Run(tt.name, func(t *testing.T) {
+			tt.fields.QueueBase.cache = NewCache(redisClient, &Config{})
+			tt.fields.QueueBase.redisClient = redisClient
 			p := &QueueConfirmation{
-				QueueBase:   tt.fields.QueueBase,
-				redisClient: redisClient,
+				QueueBase: tt.fields.QueueBase,
 			}
 			c, _ := testContext("/", http.MethodPost, map[string]string{"enable": "true"})
 			c.SetPath("/queues/:domain")
@@ -111,11 +112,11 @@ func BenchmarkQueueEnable_Do(b *testing.B) {
 	})
 	p := &QueueConfirmation{
 		QueueBase: QueueBase{
+			redisClient: redisClient,
 			config: &Config{
 				QueueEnableSec: 600,
 			},
 		},
-		redisClient: redisClient,
 	}
 
 	for i := 0; i < b.N; i++ {
@@ -180,10 +181,10 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
 			})
 
+			tt.QueueBase.cache = NewCache(redisClient, &Config{})
+			tt.QueueBase.redisClient = redisClient
 			p := &QueueConfirmation{
-				QueueBase:   tt.QueueBase,
-				cache:       NewCache(redisClient, &Config{}),
-				redisClient: redisClient,
+				QueueBase: tt.QueueBase,
 			}
 			c, _ := testContext("/", http.MethodPost, map[string]string{})
 			c.SetPath("/queues/:domain")
@@ -248,9 +249,11 @@ func TestQueueConfirmation_parseWaitingInfoByCookie(t *testing.T) {
 			)
 
 			p := &QueueConfirmation{
-				QueueBase:   QueueBase{sc: secureCookie},
-				cache:       NewCache(redisClient, &Config{}),
-				redisClient: redisClient,
+				QueueBase: QueueBase{
+					sc:          secureCookie,
+					cache:       NewCache(redisClient, &Config{}),
+					redisClient: redisClient,
+				},
 			}
 
 			c, _ := testContext("/", http.MethodPost, map[string]string{})
@@ -315,8 +318,10 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 			})
 
 			p := &QueueConfirmation{
-				cache:       NewCache(redisClient, &Config{}),
-				redisClient: redisClient,
+				QueueBase: QueueBase{
+					cache:       NewCache(redisClient, &Config{}),
+					redisClient: redisClient,
+				},
 			}
 
 			c, _ := testContext("/", http.MethodPost, map[string]string{})
@@ -327,7 +332,7 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 			if tt.beforeHook != nil {
 				tt.beforeHook(tt.key, redisClient)
 			}
-			got, err := p.getAllowedNo(c)
+			got, err := p.getAllowedNo(c.Request().Context(), tt.key)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("QueueConfirmation.getAllowedNo() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -371,9 +376,9 @@ func TestQueueConfirmation_allowAccess(t *testing.T) {
 					config: &Config{
 						AllowedAccessSec: 10,
 					},
+					cache:       NewCache(redisClient, &Config{}),
+					redisClient: redisClient,
 				},
-				cache:       NewCache(redisClient, &Config{}),
-				redisClient: redisClient,
 			}
 
 			c, _ := testContext("/", http.MethodPost, map[string]string{})
@@ -431,9 +436,9 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 					config: &Config{
 						EntryDelaySec: 10,
 					},
+					cache:       NewCache(redisClient, &Config{}),
+					redisClient: redisClient,
 				},
-				cache:       NewCache(redisClient, &Config{}),
-				redisClient: redisClient,
 			}
 
 			c, _ := testContext("/", http.MethodPost, map[string]string{})
