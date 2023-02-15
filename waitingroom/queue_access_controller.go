@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/sirupsen/logrus"
+	"github.com/labstack/echo/v4"
 )
 
 type AccessController struct {
@@ -40,7 +40,7 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 	return an, nil
 }
 
-func (a *AccessController) Do(ctx context.Context) error {
+func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 	members, err := a.redisClient.SMembers(ctx, enableDomainKey).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -50,11 +50,13 @@ func (a *AccessController) Do(ctx context.Context) error {
 	}
 
 	for _, m := range members {
+		e.Logger.Infof("try allow access %v", m)
 		exists, err := a.redisClient.Exists(ctx, a.allowNoKey(m)).Result()
 		if err != nil {
 			return err
 		}
 
+		e.Logger.Infof("allow no keys %v", exists)
 		if exists == 0 {
 			_, err := a.redisClient.SRem(ctx, enableDomainKey, m).Result()
 			if err != nil {
@@ -69,11 +71,19 @@ func (a *AccessController) Do(ctx context.Context) error {
 		}
 
 		if ok {
+			_, err := a.redisClient.Expire(ctx, a.lockAllowNoKey(m), time.Duration(a.config.AllowIntervalSec)*time.Second).Result()
+			if err != nil {
+				return err
+			}
 			r, err := a.setAllowedNo(ctx, m)
 			if err != nil {
 				return err
 			}
-			logrus.Infof("allow access %v over %d", m, r)
+
+			e.Logger.Infof("allow access %v over %d", m, r)
+		} else {
+
+			e.Logger.Infof("%v can't get lock", m)
 		}
 	}
 	return nil

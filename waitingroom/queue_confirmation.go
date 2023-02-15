@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 )
 
 type QueueConfirmation struct {
@@ -61,7 +60,6 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 		if err = p.sc.Decode(waitingInfoCookieKey,
 			cookie.Value,
 			&waitingInfo); err != nil {
-			logrus.Warnf("can't decode waiting info:%s", err)
 		}
 	}
 	return &waitingInfo, nil

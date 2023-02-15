@@ -37,6 +37,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 	emiddleware "github.com/pyama86/ngx_waitingroom/middleware"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
 	"github.com/sirupsen/logrus"
@@ -87,17 +88,6 @@ var serverCmd = &cobra.Command{
 		if err := validate.Struct(config); err != nil {
 			logrus.Fatal(err)
 		}
-		switch config.LogLevel {
-		case "debug":
-			logrus.SetLevel(logrus.DebugLevel)
-		case "info":
-			logrus.SetLevel(logrus.InfoLevel)
-		case "warn":
-			logrus.SetLevel(logrus.WarnLevel)
-		case "error":
-			logrus.SetLevel(logrus.ErrorLevel)
-		}
-
 		if err := runServer(config); err != nil {
 			logrus.Fatal(err)
 		}
@@ -109,7 +99,18 @@ func runServer(config *waitingroom.Config) error {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	switch config.LogLevel {
+	case "debug":
+		e.Logger.SetLevel(log.DEBUG)
+	case "info":
+		e.Logger.SetLevel(log.INFO)
+	case "warn":
+		e.Logger.SetLevel(log.WARN)
+	case "error":
+		e.Logger.SetLevel(log.ERROR)
+	}
 
+	e.Logger.Infof("server config: %#v", config)
 	redisDB := 0
 	if os.Getenv("REDIS_DB") != "" {
 		ai, err := strconv.Atoi(os.Getenv("REDIS_DB"))
@@ -137,9 +138,8 @@ func runServer(config *waitingroom.Config) error {
 	}
 	e.Use(emiddleware.Redis(redisc))
 
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "time=${time_rfc3339_nano}, method=${method}, uri=${uri}, status=${status}\n",
-	}))
+	e.Use(middleware.Recover())
+	e.Use(middleware.Logger())
 
 	queueConfirmation := waitingroom.NewQueueConfirmation(
 		secureCookie,
@@ -163,7 +163,7 @@ func runServer(config *waitingroom.Config) error {
 			redisc,
 		)
 		for {
-			if err := ac.Do(ctx); err != nil && err != redis.Nil {
+			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {
 				e.Logger.Error("error allow worker", err)
 				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 				break
@@ -193,6 +193,9 @@ func init() {
 	viper.SetDefault("ClientPollingIntervalSec", 60)
 	viper.SetDefault("AllowedAccessSec", 600)
 	viper.SetDefault("CacheTTLSec", 20)
+	viper.SetDefault("EntryDelaySec", 10)
 	viper.SetDefault("QueueEnableSec", 300)
+	viper.SetDefault("AllowIntervalSec", 60)
+	viper.SetDefault("AllowUnitNumber", 1000)
 	rootCmd.AddCommand(serverCmd)
 }
