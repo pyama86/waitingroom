@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/gorilla/securecookie"
 )
 
 func TestAccessController_setAllowedNo(t *testing.T) {
@@ -19,7 +18,7 @@ func TestAccessController_setAllowedNo(t *testing.T) {
 	}{
 		{
 			name:   "ok",
-			domain: string(securecookie.GenerateRandomKey(64)),
+			domain: testRandomString(20),
 			want:   1000,
 		},
 	}
@@ -79,7 +78,7 @@ func TestAccessController_Do(t *testing.T) {
 	}{
 		{
 			name:   "ok",
-			domain: string(securecookie.GenerateRandomKey(12)),
+			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
 				redisClient.SAdd(context.Background(), enableDomainKey, key)
@@ -89,7 +88,7 @@ func TestAccessController_Do(t *testing.T) {
 		},
 		{
 			name:   "skip update because not target domain",
-			domain: string(securecookie.GenerateRandomKey(12)),
+			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
 				redisClient.SAdd(context.Background(), enableDomainKey, "hoge")
@@ -98,7 +97,7 @@ func TestAccessController_Do(t *testing.T) {
 		},
 		{
 			name:   "skip update because not enabled domain",
-			domain: string(securecookie.GenerateRandomKey(12)),
+			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
 				redisClient.SAdd(context.Background(), enableDomainKey, key)
@@ -107,7 +106,7 @@ func TestAccessController_Do(t *testing.T) {
 		},
 		{
 			name:   "skip update because not before update time",
-			domain: string(securecookie.GenerateRandomKey(12)),
+			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
 				redisClient.SAdd(context.Background(), enableDomainKey, key)

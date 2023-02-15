@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http/httptest"
 	"os"
 
@@ -35,4 +36,14 @@ func testRedisClient() *redis.Client {
 	return redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%d", redisHost, 6379),
 	})
+}
+
+func testRandomString(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }

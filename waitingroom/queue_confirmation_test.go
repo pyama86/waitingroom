@@ -28,7 +28,7 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 	}{
 		{
 			name: "ok",
-			key:  string(securecookie.GenerateRandomKey(64)),
+			key:  testRandomString(20),
 			fields: fields{
 				QueueBase: QueueBase{
 					config: &Config{
@@ -41,7 +41,7 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 		},
 		{
 			name: "don't overrite allow_no",
-			key:  string(securecookie.GenerateRandomKey(64)),
+			key:  testRandomString(20),
 			fields: fields{
 				QueueBase: QueueBase{
 					config: &Config{
@@ -65,10 +65,10 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 			p := &QueueConfirmation{
 				QueueBase: tt.fields.QueueBase,
 			}
-			c, _ := testContext("/", http.MethodPost, map[string]string{"enable": "true"})
-			c.SetPath("/queues/:domain")
-			c.SetParamNames("domain")
-			c.SetParamValues(tt.key)
+			c, _ := testContext("/", http.MethodPost, map[string]string{})
+			c.SetPath("/queues/:domain/:enable")
+			c.SetParamNames("domain", "enable")
+			c.SetParamValues(tt.key, "true")
 
 			if tt.beforeHook != nil {
 				tt.beforeHook(tt.key, redisClient)
@@ -136,7 +136,7 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 	}{
 		{
 			name: "disabled",
-			key:  string(securecookie.GenerateRandomKey(64)),
+			key:  testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), key)
 			},
@@ -147,7 +147,7 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 		},
 		{
 			name: "keep waiting",
-			key:  string(securecookie.GenerateRandomKey(64)),
+			key:  testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), key+"_allow_no", "", 5*time.Second)
 				redisClient.Del(context.Background(), key)
@@ -159,7 +159,7 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 		},
 		{
 			name: "allowed",
-			key:  string(securecookie.GenerateRandomKey(64)),
+			key:  testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), key+"_allow_no", "", 5*time.Second)
 				redisClient.SetEX(context.Background(), key, "", 5*time.Second)
@@ -287,12 +287,12 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 	}{
 		{
 			name:    "not_set",
-			key:     string(securecookie.GenerateRandomKey(64)),
+			key:     testRandomString(20),
 			wantErr: true,
 		},
 		{
 			name: "ok",
-			key:  string(securecookie.GenerateRandomKey(64)),
+			key:  testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), key+"_allow_no", 10, 10*time.Second)
 			},
@@ -344,7 +344,7 @@ func TestQueueConfirmation_allowAccess(t *testing.T) {
 		{
 			name: "ok",
 			waitingInfo: &WaitingInfo{
-				ID: string(securecookie.GenerateRandomKey(64)),
+				ID: testRandomString(20),
 			},
 			wantErr: false,
 		},
@@ -400,7 +400,7 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 		{
 			name: "entry before 11sec",
 			waitingInfo: &WaitingInfo{
-				ID: string(securecookie.GenerateRandomKey(64)),
+				ID: testRandomString(20),
 			},
 			wantSerialNumber: 1,
 			wantErr:          false,
@@ -422,7 +422,7 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 			c, _ := testContext("/", http.MethodPost, map[string]string{})
 			c.SetPath("/queues/:domain")
 			c.SetParamNames("domain")
-			c.SetParamValues(string(securecookie.GenerateRandomKey(64)))
+			c.SetParamValues(testRandomString(20))
 			if err := p.takeNumberIfPossible(c, tt.waitingInfo); (err != nil) != tt.wantErr {
 				t.Errorf("QueueConfirmation.takeNumberIfPossible() error = %v, wantErr %v", err, tt.wantErr)
 			}

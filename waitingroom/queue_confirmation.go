@@ -111,14 +111,7 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 }
 
 func (p *QueueConfirmation) enableQueue(c echo.Context) error {
-	// ドメインをキューの対象にする
-	postParam := struct {
-		Enable string `json:enable`
-	}{}
-	if err := c.Bind(&postParam); err != nil {
-		return err
-	}
-	if postParam.Enable != "" {
+	if c.Param("enable") != "" {
 		pipe := p.redisClient.Pipeline()
 		pipe.SetNX(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey)), "1", 0)
 		pipe.Expire(c.Request().Context(),

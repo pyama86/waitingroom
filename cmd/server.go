@@ -36,7 +36,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
-	"github.com/pyama86/ngx_waitingroom/middleware"
+	"github.com/labstack/echo/v4/middleware"
+	emiddleware "github.com/pyama86/ngx_waitingroom/middleware"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -59,7 +60,7 @@ func init() {
 }
 
 func healthCheck(c echo.Context) error {
-	redisc := c.Get(middleware.RedisKey).(*redis.Client)
+	redisc := c.Get(emiddleware.RedisKey).(*redis.Client)
 	var ctx = context.Background()
 	_, err := redisc.Ping(ctx).Result()
 	if err != nil {
@@ -134,7 +135,11 @@ func runServer(config *waitingroom.Config) error {
 	if err != nil {
 		return err
 	}
-	e.Use(middleware.Redis(redisc))
+	e.Use(emiddleware.Redis(redisc))
+
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "time=${time_rfc3339_nano}, method=${method}, uri=${uri}, status=${status}\n",
+	}))
 
 	queueConfirmation := waitingroom.NewQueueConfirmation(
 		secureCookie,
@@ -143,7 +148,8 @@ func runServer(config *waitingroom.Config) error {
 	)
 
 	e.GET("/status", healthCheck)
-	e.POST("/queues/:domain", queueConfirmation.Do)
+	e.GET("/queues/:domain", queueConfirmation.Do)
+	e.GET("/queues/:domain/:enable", queueConfirmation.Do)
 
 	go func() {
 		if err := e.Start(config.Listener); err != nil && err != http.ErrServerClosed {
