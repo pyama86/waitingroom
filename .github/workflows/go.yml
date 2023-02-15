@@ -33,3 +33,6 @@ jobs:
 
     - name: Test
       run: make ci
+      env:
+        REDIS_HOST: redis
+

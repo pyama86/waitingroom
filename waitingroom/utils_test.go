@@ -3,9 +3,12 @@ package waitingroom
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http/httptest"
+	"os"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 )
@@ -22,4 +25,14 @@ func testContext(path, method string, params map[string]string) (echo.Context, *
 	e := echo.New()
 	ctx := e.NewContext(req, rec)
 	return ctx, rec
+}
+
+func testRedisClient() *redis.Client {
+	redisHost := "127.0.0.1"
+	if os.Getenv("REDIS_HOST") != "" {
+		redisHost = os.Getenv("REDIS_HOST")
+	}
+	return redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%d", redisHost, 6379),
+	})
 }

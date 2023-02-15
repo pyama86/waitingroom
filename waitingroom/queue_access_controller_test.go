@@ -2,7 +2,6 @@ package waitingroom
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -26,9 +25,7 @@ func TestAccessController_setAllowedNo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
+			redisClient := testRedisClient()
 			a := &AccessController{
 				QueueBase: QueueBase{
 					config: &Config{
@@ -122,9 +119,7 @@ func TestAccessController_Do(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
+			redisClient := testRedisClient()
 			a := &AccessController{
 				QueueBase: QueueBase{
 					config: &Config{

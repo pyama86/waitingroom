@@ -57,9 +57,7 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		redisClient := redis.NewClient(&redis.Options{
-			Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-		})
+		redisClient := testRedisClient()
 
 		t.Run(tt.name, func(t *testing.T) {
 			tt.fields.QueueBase.cache = NewCache(redisClient, &Config{})
@@ -106,9 +104,7 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 }
 
 func BenchmarkQueueEnable_Do(b *testing.B) {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-	})
+	redisClient := testRedisClient()
 	p := &QueueConfirmation{
 		QueueBase: QueueBase{
 			redisClient: redisClient,
@@ -176,10 +172,7 @@ func TestQueueConfirmation_isAllowedConnection(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
-
+			redisClient := testRedisClient()
 			tt.QueueBase.cache = NewCache(redisClient, &Config{})
 			tt.QueueBase.redisClient = redisClient
 			p := &QueueConfirmation{
@@ -238,10 +231,7 @@ func TestQueueConfirmation_parseWaitingInfoByCookie(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
-
+			redisClient := testRedisClient()
 			secureCookie := securecookie.New(
 				securecookie.GenerateRandomKey(64),
 				securecookie.GenerateRandomKey(32),
@@ -312,10 +302,7 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
-
+			redisClient := testRedisClient()
 			p := &QueueConfirmation{
 				QueueBase: QueueBase{
 					cache:       NewCache(redisClient, &Config{}),
@@ -364,10 +351,7 @@ func TestQueueConfirmation_allowAccess(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
-
+			redisClient := testRedisClient()
 			p := &QueueConfirmation{
 				QueueBase: QueueBase{
 					config: &Config{
@@ -424,10 +408,7 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			redisClient := redis.NewClient(&redis.Options{
-				Addr: fmt.Sprintf("%s:%d", "127.0.0.1", 6379),
-			})
-
+			redisClient := testRedisClient()
 			p := &QueueConfirmation{
 				QueueBase: QueueBase{
 					config: &Config{
