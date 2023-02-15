@@ -3,7 +3,7 @@ package waitingroom
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http/httptest"
 
 	"github.com/labstack/echo/v4"
@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(io.Discard)
 }
 func testContext(path, method string, params map[string]string) (echo.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()

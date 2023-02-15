@@ -15,8 +15,7 @@ import (
 
 func TestQueueConfirmation_enableQueue(t *testing.T) {
 	type fields struct {
-		QueueBase   QueueBase
-		redisClient *redis.Client
+		QueueBase QueueBase
 	}
 	tests := []struct {
 		name       string
@@ -346,9 +345,7 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 
 func TestQueueConfirmation_allowAccess(t *testing.T) {
 	type fields struct {
-		QueueBase   QueueBase
-		cache       *Cache
-		redisClient *redis.Client
+		QueueBase QueueBase
 	}
 	tests := []struct {
 		name        string

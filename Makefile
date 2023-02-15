@@ -6,3 +6,13 @@ test: tidy
 
 run:
 	go run . server
+
+
+ci: lint test
+
+lint: devdeps
+	@staticcheck ./...
+
+
+devdeps:
+	@which staticcheck > /dev/null || go install honnef.co/go/tools/cmd/staticcheck@latest
