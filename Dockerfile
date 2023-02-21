@@ -5,6 +5,7 @@ WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 COPY . ./
+RUN rm -rf build
 RUN go build -o /waitingroom
 
 FROM scratch

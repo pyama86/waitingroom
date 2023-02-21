@@ -6,4 +6,3 @@ docker-compose.yml
 misc
 logs
 dockerfiles
-build

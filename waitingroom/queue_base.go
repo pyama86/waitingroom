@@ -30,7 +30,7 @@ func (q *QueueBase) setWaitingInfoCookie(c echo.Context, waitingInfo *WaitingInf
 	c.SetCookie(&http.Cookie{
 		Name:     waitingInfoCookieKey,
 		Value:    encoded,
-		MaxAge:   q.config.ClientPollingIntervalSec * 2,
+		MaxAge:   q.config.AllowedAccessSec,
 		Domain:   c.Param(paramDomainKey),
 		Path:     "/",
 		Secure:   true,
