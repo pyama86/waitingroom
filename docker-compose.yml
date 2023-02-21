@@ -18,7 +18,7 @@ services:
       context: .
       args:
         NGINX_VERSION: 1.23.1
-        NGX_MRUBY_VERSION: subrequest-done
+        NGX_MRUBY_VERSION: master
     command: /usr/local/src/ngx_mruby/build/nginx/sbin/nginx -c /etc/nginx/conf.d/test.conf
     depends_on:
       - waitingroom

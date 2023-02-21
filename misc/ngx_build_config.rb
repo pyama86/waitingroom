@@ -9,6 +9,7 @@ MRuby::Build.new do |conf|
 
   conf.gem github: 'iij/mruby-env'
   conf.gem github: 'iij/mruby-dir'
+  conf.gem github: 'iij/mruby-require'
   conf.gem github: 'iij/mruby-digest'
   conf.gem github: 'iij/mruby-process'
   conf.gem github: 'mattn/mruby-json'

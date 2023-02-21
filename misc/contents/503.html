@@ -14,7 +14,6 @@ pooling = function() {
     }
   ).then(function(response) {
     let sn = response.headers.get("serial_no");
-    console.log(sn);
     if(sn> 0) {
       const body = document.getElementsByTagName("body")[0];
       if(body.classList.contains('waiting-room') !== true) {
