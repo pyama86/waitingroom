@@ -57,6 +57,7 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" {
+		fmt.Printf("readconfig from: %s\n", cfgFile)
 		viper.SetConfigFile(cfgFile)
 	} else {
 		home, err := homedir.Dir()
@@ -72,6 +73,8 @@ func initConfig() {
 	viper.SetConfigType("toml")
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	} else {
+		fmt.Printf("config file read error: %s", err)
 	}
 }
 

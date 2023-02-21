@@ -55,11 +55,19 @@ func (q *QueueBase) lockAllowNoKey(domain string) string {
 	return domain + "_lock_allow_no"
 }
 
-func (q *QueueBase) getAllowedNo(ctx context.Context, domain string) (int64, error) {
+func (q *QueueBase) getAllowedNo(ctx context.Context, domain string, usecache bool) (int64, error) {
 	// 現在許可されている通り番号
-	v, err := q.cache.Get(ctx, q.allowNoKey(domain))
-	if err != nil {
-		return 0, err
+	if usecache {
+		v, err := q.cache.Get(ctx, q.allowNoKey(domain))
+		if err != nil {
+			return 0, err
+		}
+		return strconv.ParseInt(v, 10, 64)
+	} else {
+		v, err := q.redisClient.Get(ctx, q.allowNoKey(domain)).Result()
+		if err != nil {
+			return 0, err
+		}
+		return strconv.ParseInt(v, 10, 64)
 	}
-	return strconv.ParseInt(v, 10, 64)
 }

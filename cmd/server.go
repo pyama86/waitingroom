@@ -96,6 +96,13 @@ var serverCmd = &cobra.Command{
 
 func runServer(config *waitingroom.Config) error {
 	e := echo.New()
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: `{"time":"${time_rfc3339_nano}","remote_ip":"${remote_ip}",` +
+			`"host":"${host}","method":"${method}","uri":"${uri}",` +
+			`"status":${status},"error":"${error}"` + "\n",
+	}))
+
+	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -139,12 +146,12 @@ func runServer(config *waitingroom.Config) error {
 	e.Use(emiddleware.Redis(redisc))
 
 	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
-
+	cache := waitingroom.NewCache(redisc, config)
 	queueConfirmation := waitingroom.NewQueueConfirmation(
 		secureCookie,
 		config,
 		redisc,
+		cache,
 	)
 
 	e.GET("/status", healthCheck)
@@ -161,6 +168,7 @@ func runServer(config *waitingroom.Config) error {
 		ac := waitingroom.NewAccessController(
 			config,
 			redisc,
+			cache,
 		)
 		for {
 			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {
@@ -190,12 +198,12 @@ func init() {
 	serverCmd.PersistentFlags().String("listener", "localhost:18080", "listen host")
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
 
-	viper.SetDefault("ClientPollingIntervalSec", 60)
-	viper.SetDefault("AllowedAccessSec", 600)
-	viper.SetDefault("CacheTTLSec", 20)
-	viper.SetDefault("EntryDelaySec", 10)
-	viper.SetDefault("QueueEnableSec", 300)
-	viper.SetDefault("AllowIntervalSec", 60)
-	viper.SetDefault("AllowUnitNumber", 1000)
+	viper.SetDefault("client_polling_interval_sec", 60)
+	viper.SetDefault("allowed_access_sec", 600)
+	viper.SetDefault("cache_ttl_sec", 20)
+	viper.SetDefault("entry_delay_sec", 10)
+	viper.SetDefault("queue_enable_sec", 300)
+	viper.SetDefault("allow_interval_sec", 60)
+	viper.SetDefault("allow_unit_number", 1000)
 	rootCmd.AddCommand(serverCmd)
 }

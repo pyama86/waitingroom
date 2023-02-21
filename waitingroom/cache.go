@@ -21,6 +21,10 @@ func NewCache(redisClient *redis.Client, config *Config) *Cache {
 	}
 }
 
+func (c *Cache) Delete(key string) {
+	c.cache.Delete(key)
+}
+
 func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 	v, found := c.cache.Get(key)
 	if found {
@@ -37,6 +41,6 @@ func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 		return "", err
 	}
 
-	c.cache.Set(key, rv, tv*time.Second)
+	c.cache.Set(key, rv, tv)
 	return rv, nil
 }

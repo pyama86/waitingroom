@@ -13,30 +13,33 @@ type AccessController struct {
 	QueueBase
 }
 
-func NewAccessController(config *Config, redisClient *redis.Client) *AccessController {
+func NewAccessController(config *Config, redisClient *redis.Client, cache *Cache) *AccessController {
 	return &AccessController{
 		QueueBase: QueueBase{
 			config:      config,
 			redisClient: redisClient,
-			cache:       NewCache(redisClient, config),
+			cache:       cache,
 		},
 	}
 }
 func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int64, error) {
 	// 現在許可されている通り番号
-	an, err := a.getAllowedNo(ctx, domain)
+	an, err := a.getAllowedNo(ctx, domain, false)
 	if err != nil && err != redis.Nil {
 		return 0, err
 	}
 
-	an += a.config.AllowUnitNumber
-	_, err = a.redisClient.SetEX(ctx,
+	an = an + a.config.AllowUnitNumber
+	_, err = a.redisClient.Set(ctx,
 		a.allowNoKey(domain),
 		strconv.FormatInt(an, 10),
-		time.Duration(a.config.QueueEnableSec)*time.Second).Result()
+		redis.KeepTTL).Result()
 	if err != nil {
 		return 0, err
 	}
+
+	a.cache.Delete(a.allowNoKey(domain))
+
 	return an, nil
 }
 
@@ -62,6 +65,11 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			if err != nil {
 				return err
 			}
+			_, err = a.redisClient.Del(ctx, a.allowNoKey(m), m).Result()
+			if err != nil && err != redis.Nil {
+				return err
+			}
+
 			continue
 		}
 
@@ -82,7 +90,6 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 
 			e.Logger.Infof("allow access %v over %d", m, r)
 		} else {
-
 			e.Logger.Infof("%v can't get lock", m)
 		}
 	}
