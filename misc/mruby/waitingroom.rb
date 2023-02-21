@@ -3,13 +3,14 @@ Nginx.return -> do
     v = Nginx::Var.new
 
     url = "/queues/#{v.host}"
-    url << "/enable" if v.enable_waitingroom
+    url << "/enable" if v.enable_waitingroom == "1"
 
     Nginx::Async::HTTP.sub_request url
     res = Nginx::Async::HTTP.last_response
     ho = Nginx::Request.new.headers_out
     ho["Set-Cookie"] = res.headers["Set-Cookie"]
 
+    Nginx.errlogger Nginx::LOG_ERR, res.status
     case res.status
     when 200
       return Nginx::DECLINED

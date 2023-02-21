@@ -61,6 +61,7 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 		if err = p.sc.Decode(waitingInfoCookieKey,
 			cookie.Value,
 			&waitingInfo); err != nil {
+			c.Logger().Warnf("can't decode cookie: %s", err)
 		}
 	}
 	return &waitingInfo, nil
