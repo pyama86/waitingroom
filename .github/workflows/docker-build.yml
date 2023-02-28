@@ -1,7 +1,7 @@
 name: Release Docker Image
 on:
   push:
-    branch:
+    branches:
       - main
 jobs:
   release:
