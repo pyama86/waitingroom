@@ -1,0 +1,85 @@
+<html lang="ja">
+<head>
+<title>can't access</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script type="text/javascript">
+pooling = function() {
+  fetch(
+    "/",
+    {
+      method: "GET",
+      mode: 'same-origin',
+      credentials: 'same-origin',
+    }
+  ).then(function(response) {
+    let sn = response.headers.get("serial_no");
+    if(sn> 0) {
+      const body = document.getElementsByTagName("body")[0];
+      if(body.classList.contains('waiting-room') !== true) {
+        body.classList.add('waiting-room');
+        document.getElementById("err_txt").innerText='requests too much';
+      }
+      document.getElementById("waiting_body").innerText=sn;
+    };
+    if(response.status == 200) {
+      location.href='/';
+      return;
+    }
+  });
+};
+window.onload = pooling;
+const intervalId = setInterval(() =>{
+  pooling();
+}, 5000
+);
+</script>
+<style>
+.waiting-room {
+  min-width: auto;
+  background-color: #eeeee9;
+}
+.waiting-room .content_wrap {
+  display: block;
+  padding: 120px 1em 0;
+}
+.waiting-room .error_image {
+  max-width: 250px;
+}
+.waiting-list {
+  display: none;
+  border-radius: 10px;
+  background: #fff;
+  width: 250px;
+  margin: 2em auto;
+  padding: 1em 0;
+  color: #102563;
+  font-weight: bold;
+  line-height: 1;
+  font-size: 18px;
+}
+.waiting-list dd {
+  margin-top:10px;
+}
+.waiting-list dd span {
+  font-size: 200%;
+}
+.waiting-room .waiting-list {
+  display: inline-block;
+}
+</style>
+</head>
+<body>
+  <div class="body_wrap">
+    <div class="content_wrap">
+      <p id="err_txt" class="err_txt">
+      request too much.
+      </p>
+      <dl class="waiting-list">
+        <dt>your serial number</dt>
+        <dd><span id="waiting_body"></span></dd>
+      </dl>
+    </div>
+  </div>
+</body>
+</html>

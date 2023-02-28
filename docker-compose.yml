@@ -1,0 +1,56 @@
+version: "3"
+services:
+  waitingroom:
+    build:
+      dockerfile: dockerfiles/dev
+      context: .
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+    volumes:
+      - ./misc/waitingroom:/etc/waitingroom
+    ports:
+      - "18080:18080"
+  ngx_mruby:
+    build:
+      dockerfile: dockerfiles/ngx_mruby
+      context: .
+      args:
+        NGINX_VERSION: 1.23.1
+        NGX_MRUBY_VERSION: master
+    command: /usr/local/src/ngx_mruby/build/nginx/sbin/nginx -c /etc/nginx/conf.d/test.conf
+    depends_on:
+      - waitingroom
+      - redis
+      - redmine
+    volumes:
+      - ./misc/conf.d:/etc/nginx/conf.d
+      - ./misc/contents:/var/www/html
+      - ./misc/mruby:/etc/nginx/mruby
+      - ./logs:/usr/local/src/ngx_mruby/build/nginx/logs
+    ports:
+      - "9090:80"
+  redis:
+    image: "redis:latest"
+    ports:
+      - "16379:6379"
+  redmine:
+    image: redmine
+    container_name: redmine
+    ports:
+      - 3000:3000
+    environment:
+      REDMINE_DB_MYSQL: redmine-db
+      REDMINE_DB_PASSWORD: redmine
+    depends_on:
+      - redmine-db
+    restart: always
+  redmine-db:
+    image: mariadb
+    container_name: redmine-db
+    environment:
+      MYSQL_ROOT_PASSWORD: redmine
+      MYSQL_DATABASE: redmine
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    restart: always

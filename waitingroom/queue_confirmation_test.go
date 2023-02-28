@@ -318,7 +318,7 @@ func TestQueueConfirmation_getAllowedNo(t *testing.T) {
 			if tt.beforeHook != nil {
 				tt.beforeHook(tt.key, redisClient)
 			}
-			got, err := p.getAllowedNo(c.Request().Context(), tt.key)
+			got, err := p.getAllowedNo(c.Request().Context(), tt.key, true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("QueueConfirmation.getAllowedNo() error = %v, wantErr %v", err, tt.wantErr)
 				return

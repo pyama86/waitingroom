@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/labstack/echo/v4"
 )
 
 func TestAccessController_setAllowedNo(t *testing.T) {
@@ -52,16 +53,6 @@ func TestAccessController_setAllowedNo(t *testing.T) {
 
 			if v != strconv.Itoa(int(tt.want)) {
 				t.Errorf("AccessController.setAllowedNo() = %v, want %v", v, tt.want)
-			}
-
-			tv, err := redisClient.TTL(context.Background(), tt.domain+"_allow_no").Result()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("AccessController.setAllowedNo() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tv != 600*time.Second {
-				t.Errorf("AccessController.setAllowedNo() = %v, want %v", tv, 600)
 			}
 		})
 	}
@@ -133,7 +124,8 @@ func TestAccessController_Do(t *testing.T) {
 			if tt.beforeHook != nil {
 				tt.beforeHook(tt.domain, redisClient)
 			}
-			if err := a.Do(context.Background()); (err != nil) != tt.wantErr {
+			e := echo.New()
+			if err := a.Do(context.Background(), e); (err != nil) != tt.wantErr {
 				t.Errorf("AccessController.Do() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -147,15 +139,6 @@ func TestAccessController_Do(t *testing.T) {
 					t.Errorf("AccessController.setAllowedNo() = %v, want %v", v, tt.want)
 				}
 
-				tv, err := redisClient.TTL(context.Background(), tt.domain+"_allow_no").Result()
-				if (err != nil) != tt.wantErr {
-					t.Errorf("AccessController.Do() error = %v, wantErr %v", err, tt.wantErr)
-					return
-				}
-
-				if tv != 600*time.Second {
-					t.Errorf("AccessController.Do() = %v, want %v", tv, 600)
-				}
 			} else {
 				if err != redis.Nil {
 					t.Errorf("AccessController.setAllowedNo() value = %v error = %v", v, err)

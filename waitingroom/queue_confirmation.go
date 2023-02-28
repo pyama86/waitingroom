@@ -20,13 +20,14 @@ func NewQueueConfirmation(
 	sc *securecookie.SecureCookie,
 	config *Config,
 	redisClient *redis.Client,
+	cache *Cache,
 ) *QueueConfirmation {
 	return &QueueConfirmation{
 		QueueBase: QueueBase{
 			sc:          sc,
 			config:      config,
 			redisClient: redisClient,
-			cache:       NewCache(redisClient, config),
+			cache:       cache,
 		},
 	}
 }
@@ -60,6 +61,7 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 		if err = p.sc.Decode(waitingInfoCookieKey,
 			cookie.Value,
 			&waitingInfo); err != nil {
+			c.Logger().Warnf("can't decode cookie: %s", err)
 		}
 	}
 	return &waitingInfo, nil
@@ -102,6 +104,12 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 			if err != nil {
 				return err
 			}
+			_, err = p.redisClient.Expire(c.Request().Context(),
+				p.hostCurrentNumberKey(c), time.Duration(p.config.QueueEnableSec)*time.Second).Result()
+			if err != nil {
+				return err
+			}
+
 			waitingInfo.SerialNumber = v
 		}
 	}
@@ -127,6 +135,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, " can't build waiting info")
 	}
 
+	c.Logger().Debugf("waiting info: %#v", waitingInfo)
 	// キューの有効時間更新
 	if err := p.enableQueue(c); err != nil {
 		return NewError(http.StatusInternalServerError, err, " can't get waiting info")
@@ -144,12 +153,14 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 			return NewError(http.StatusInternalServerError, err, " can't build waiting info")
 		}
 	} else {
-		an, err := p.getAllowedNo(c.Request().Context(), c.Param(paramDomainKey))
+		an, err := p.getAllowedNo(c.Request().Context(), c.Param(paramDomainKey), true)
 		if err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't get allowed no")
 		}
 
 		allowedNo = an
+		c.Logger().Debugf("allowed no: %d serial_number: %d", allowedNo, waitingInfo.SerialNumber)
+
 		// 許可されたとおり番号以上の値を持っている
 		if allowedNo > waitingInfo.SerialNumber {
 			if err := p.allowAccess(c, waitingInfo); err != nil {

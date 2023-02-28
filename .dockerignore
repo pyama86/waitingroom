@@ -1,0 +1,8 @@
+Makefile
+Dockerfile
+.git
+.github
+docker-compose.yml
+misc
+logs
+dockerfiles
