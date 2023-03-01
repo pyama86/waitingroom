@@ -15,12 +15,14 @@ func TestAccessController_setAllowedNo(t *testing.T) {
 		name    string
 		domain  string
 		want    int64
+		wantTTL int64
 		wantErr bool
 	}{
 		{
-			name:   "ok",
-			domain: testRandomString(20),
-			want:   1000,
+			name:    "ok",
+			domain:  testRandomString(20),
+			wantTTL: 600,
+			want:    1000,
 		},
 	}
 	for _, tt := range tests {
@@ -36,13 +38,19 @@ func TestAccessController_setAllowedNo(t *testing.T) {
 					cache:       NewCache(redisClient, &Config{}),
 				},
 			}
-			got, err := a.setAllowedNo(context.Background(), tt.domain)
+			redisClient.Set(context.Background(), tt.domain+"_allow_no", "0", 600)
+			redisClient.Expire(context.Background(), tt.domain+"_allow_no", time.Second*600)
+
+			got, ttl, err := a.setAllowedNo(context.Background(), tt.domain)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AccessController.setAllowedNo() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
 				t.Errorf("AccessController.setAllowedNo() = %v, want %v", got, tt.want)
+			}
+			if ttl != tt.wantTTL {
+				t.Errorf("AccessController.setAllowedNo() TTL miss match = %v, want %v", ttl, tt.wantTTL)
 			}
 
 			v, err := redisClient.Get(context.Background(), tt.domain+"_allow_no").Result()

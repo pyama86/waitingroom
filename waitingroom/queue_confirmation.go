@@ -119,6 +119,7 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 func (p *QueueConfirmation) enableQueue(c echo.Context) error {
 	if c.Param("enable") != "" {
 		pipe := p.redisClient.Pipeline()
+		// 値があれば上書きしない、なければ作る
 		pipe.SetNX(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey)), "0", 0)
 		pipe.Expire(c.Request().Context(),
 			p.allowNoKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second)

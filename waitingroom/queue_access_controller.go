@@ -23,23 +23,27 @@ func NewAccessController(config *Config, redisClient *redis.Client, cache *Cache
 		},
 	}
 }
-func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int64, error) {
+func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int64, int64, error) {
 	// 現在許可されている通り番号
 	an, err := a.getAllowedNo(ctx, domain, false)
 	if err != nil && err != redis.Nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	an = an + a.config.AllowUnitNumber
 	_, err = a.redisClient.Set(ctx,
 		a.allowNoKey(domain),
 		strconv.FormatInt(an, 10),
-		0).Result()
+		redis.KeepTTL).Result()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
+	}
+	ttl, err := a.redisClient.TTL(ctx, a.allowNoKey(domain)).Result()
+	if err != nil {
+		return 0, 0, err
 	}
 
-	return an, nil
+	return an, int64(ttl / time.Second), nil
 }
 
 func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
@@ -89,13 +93,13 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			if err != nil {
 				return err
 			}
-			r, err := a.setAllowedNo(ctx, m)
+			r, ttl, err := a.setAllowedNo(ctx, m)
 			if err != nil {
 				e.Logger.Warnf("can't set allowed no %s err:%s", m, err)
 				return err
 			}
 
-			e.Logger.Infof("allow access %v over %d", m, r)
+			e.Logger.Infof("allow access %v over %d ttl %d sec", m, r, ttl)
 		} else {
 			ttl, err := a.redisClient.TTL(ctx, a.lockAllowNoKey(m)).Result()
 			if err != nil {
