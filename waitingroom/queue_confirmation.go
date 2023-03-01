@@ -162,7 +162,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		c.Logger().Debugf("allowed no: %d serial_number: %d", allowedNo, waitingInfo.SerialNumber)
 
 		// 許可されたとおり番号以上の値を持っている
-		if allowedNo > waitingInfo.SerialNumber {
+		if allowedNo >= waitingInfo.SerialNumber {
 			if err := p.allowAccess(c, waitingInfo); err != nil {
 				NewError(http.StatusInternalServerError, err, " can't set allowed key")
 			}
