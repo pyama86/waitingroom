@@ -75,7 +75,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 
 		ok, err := a.redisClient.SetNX(ctx, a.lockAllowNoKey(m), "1", redis.KeepTTL).Result()
 		if err != nil {
-			e.Logger.Warnf("can't set nx %s", m)
+			e.Logger.Warnf("can't set nx %s %s", m, err)
 			return err
 		}
 
