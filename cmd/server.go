@@ -97,6 +97,7 @@ func runServer(config *waitingroom.Config) error {
 	e := echo.New()
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: func(c echo.Context) bool {
+			e.Logger.Info(c.Request().RequestURI)
 			return c.Request().RequestURI == "/status"
 		},
 		Format: `{"time":"${time_rfc3339_nano}","remote_ip":"${remote_ip}",` +
