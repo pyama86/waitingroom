@@ -39,8 +39,8 @@ func (q *QueueBase) setWaitingInfoCookie(c echo.Context, waitingInfo *WaitingInf
 	return nil
 }
 
-func (q *QueueBase) hostCurrentNumberKey(c echo.Context) string {
-	return c.Param(paramDomainKey) + "_current_no"
+func (q *QueueBase) hostCurrentNumberKey(domain string) string {
+	return domain + "_current_no"
 }
 
 func (q *QueueBase) hostDelayTakeNumberKey(c echo.Context) string {

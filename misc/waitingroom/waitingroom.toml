@@ -1,1 +1,16 @@
-allow_unit_number = 1
+listener = "127.0.0.1:8080"
+# 30秒あたり100クライアント接続許可
+allow_interval_sec = 30
+allow_unit_number = 100
+
+# アクセス許可後20分間アクセス可能
+allowed_access_sec = 1200
+
+# 待合室に初回アクセス後、採番するまでのディレイ秒数
+entry_delay_sec = 10
+
+# 待合室が起動した10分間は起動し続ける
+queue_enable_sec = 600
+
+# インメモリキャッシュの生存時間
+cache_ttl_sec = 10

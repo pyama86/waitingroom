@@ -100,12 +100,12 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 		}
 	} else {
 		if _, err := p.cache.Get(c.Request().Context(), p.hostDelayTakeNumberKey(c)); err == redis.Nil {
-			v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c)).Result()
+			v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c.Param(paramDomainKey))).Result()
 			if err != nil {
 				return err
 			}
 			_, err = p.redisClient.Expire(c.Request().Context(),
-				p.hostCurrentNumberKey(c), time.Duration(p.config.QueueEnableSec)*time.Second).Result()
+				p.hostCurrentNumberKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second).Result()
 			if err != nil {
 				return err
 			}

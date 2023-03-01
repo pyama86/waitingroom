@@ -67,7 +67,11 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			if err != nil {
 				return err
 			}
-			_, err = a.redisClient.Del(ctx, a.allowNoKey(m), m).Result()
+			_, err = a.redisClient.Del(ctx, a.allowNoKey(m)).Result()
+			if err != nil && err != redis.Nil {
+				return err
+			}
+			_, err = a.redisClient.Del(ctx, a.hostCurrentNumberKey(m)).Result()
 			if err != nil && err != redis.Nil {
 				return err
 			}
