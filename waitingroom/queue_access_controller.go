@@ -60,7 +60,6 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			return err
 		}
 
-		e.Logger.Infof("allow no keys %v", exists)
 		if exists == 0 {
 			_, err := a.redisClient.SRem(ctx, enableDomainKey, m).Result()
 			if err != nil {
@@ -74,19 +73,25 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			continue
 		}
 
-		ok, err := a.redisClient.SetNX(ctx, a.lockAllowNoKey(m), "1", time.Duration(a.config.AllowIntervalSec)*time.Second).Result()
+		ok, err := a.redisClient.SetNX(ctx, a.lockAllowNoKey(m), "1", redis.KeepTTL).Result()
 		if err != nil {
+			e.Logger.Warnf("can't set nx %s", m)
 			return err
 		}
 
 		if ok {
-			e.Logger.Infof("got lock %v %s", m, os.Hostname())
-			_, err := a.redisClient.Expire(ctx, a.lockAllowNoKey(m), time.Duration(a.config.AllowIntervalSec)*time.Second).Result()
+			hostname, err := os.Hostname()
+			if err != nil {
+				return err
+			}
+			e.Logger.Infof("got lock %v %s", m, hostname)
+			_, err = a.redisClient.Expire(ctx, a.lockAllowNoKey(m), time.Duration(a.config.AllowIntervalSec)*time.Second).Result()
 			if err != nil {
 				return err
 			}
 			r, err := a.setAllowedNo(ctx, m)
 			if err != nil {
+				e.Logger.Warnf("can't set allowed no %s", m)
 				return err
 			}
 
