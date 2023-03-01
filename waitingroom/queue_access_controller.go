@@ -91,7 +91,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			}
 			r, err := a.setAllowedNo(ctx, m)
 			if err != nil {
-				e.Logger.Warnf("can't set allowed no %s", m)
+				e.Logger.Warnf("can't set allowed no %s err:%s", m, err)
 				return err
 			}
 

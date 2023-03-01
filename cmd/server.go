@@ -29,7 +29,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -173,8 +172,6 @@ func runServer(config *waitingroom.Config) error {
 		for {
 			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {
 				e.Logger.Errorf("error allow worker: %s", err)
-				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-				break
 			}
 			time.Sleep(time.Duration(config.AllowIntervalSec) * time.Second)
 		}
