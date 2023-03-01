@@ -2,6 +2,7 @@ package waitingroom
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"time"
 
@@ -79,6 +80,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		}
 
 		if ok {
+			e.Logger.Infof("got lock %v %s", m, os.Hostname())
 			_, err := a.redisClient.Expire(ctx, a.lockAllowNoKey(m), time.Duration(a.config.AllowIntervalSec)*time.Second).Result()
 			if err != nil {
 				return err
