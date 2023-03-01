@@ -34,7 +34,7 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 	_, err = a.redisClient.Set(ctx,
 		a.allowNoKey(domain),
 		strconv.FormatInt(an, 10),
-		redis.KeepTTL).Result()
+		0).Result()
 	if err != nil {
 		return 0, err
 	}
