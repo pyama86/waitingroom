@@ -90,7 +90,11 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 
 			e.Logger.Infof("allow access %v over %d", m, r)
 		} else {
-			e.Logger.Infof("%v can't get lock", m)
+			ttl, err := a.redisClient.TTL(ctx, a.lockAllowNoKey(m)).Result()
+			if err != nil {
+				return err
+			}
+			e.Logger.Infof("%v can't get lock ttl: %d sec", m, ttl/time.Second)
 		}
 	}
 	return nil

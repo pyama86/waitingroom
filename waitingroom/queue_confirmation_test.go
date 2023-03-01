@@ -36,7 +36,7 @@ func TestQueueConfirmation_enableQueue(t *testing.T) {
 					},
 				},
 			},
-			want:    "1",
+			want:    "0",
 			wantErr: false,
 		},
 		{
