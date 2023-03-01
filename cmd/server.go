@@ -172,7 +172,7 @@ func runServer(config *waitingroom.Config) error {
 		)
 		for {
 			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {
-				e.Logger.Error("error allow worker", err)
+				e.Logger.Errorf("error allow worker: %s", err)
 				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 				break
 			}
