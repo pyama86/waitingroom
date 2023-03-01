@@ -39,8 +39,6 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 		return 0, err
 	}
 
-	a.cache.Delete(a.allowNoKey(domain))
-
 	return an, nil
 }
 
@@ -72,6 +70,8 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 
 			continue
 		}
+		// キャッシュ削除
+		a.cache.Delete(a.allowNoKey(m))
 
 		ok, err := a.redisClient.SetNX(ctx, a.lockAllowNoKey(m), "1", 0).Result()
 		if err != nil {
