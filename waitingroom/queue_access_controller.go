@@ -2,6 +2,7 @@ package waitingroom
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -36,7 +37,7 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 		strconv.FormatInt(an, 10),
 		redis.KeepTTL).Result()
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("domain: %s value: %d err:: %s", domain, an, err)
 	}
 	ttl, err := a.redisClient.TTL(ctx, a.allowNoKey(domain)).Result()
 	if err != nil {
