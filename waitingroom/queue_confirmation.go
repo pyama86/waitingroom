@@ -78,12 +78,11 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 }
 
 func (p *QueueConfirmation) allowAccess(c echo.Context, waitingInfo *WaitingInfo) error {
-	_, err := p.redisClient.SetEX(c.Request().Context(),
+	return p.redisClient.SetEX(c.Request().Context(),
 		waitingInfo.ID,
 		strconv.FormatInt(waitingInfo.SerialNumber, 10),
 		time.Duration(p.config.AllowedAccessSec)*time.Second,
-	).Result()
-	return err
+	).Err()
 }
 
 // エントリー時間から指定秒数経過していれば採番する
@@ -97,16 +96,15 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 		waitingInfo.ID = u.String()
 		waitingInfo.TakeSerialNumberTime = time.Now().Unix() + p.config.EntryDelaySec
 	} else if waitingInfo.TakeSerialNumberTime > 0 && waitingInfo.TakeSerialNumberTime < time.Now().Unix() {
-		v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c.Param(paramDomainKey))).Result()
-		if err != nil {
-			return err
-		}
-		_, err = p.redisClient.Expire(c.Request().Context(),
+		pipe := p.redisClient.Pipeline()
+		incr := pipe.Incr(c.Request().Context(), p.hostCurrentNumberKey(c.Param(paramDomainKey)))
+		pipe.Expire(c.Request().Context(),
 			p.hostCurrentNumberKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second).Result()
-		if err != nil {
+		if _, err := pipe.Exec(c.Request().Context()); err != nil {
 			return err
 		}
-		waitingInfo.SerialNumber = v
+
+		waitingInfo.SerialNumber = incr.Val()
 	}
 	return nil
 }

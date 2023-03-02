@@ -3,7 +3,6 @@ package waitingroom
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -30,16 +29,17 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 	if err != nil && err != redis.Nil {
 		return 0, 0, err
 	}
+
 	ttl, err := a.redisClient.TTL(ctx, a.allowNoKey(domain)).Result()
 	if err != nil {
 		return 0, 0, err
 	}
 
 	an = an + a.config.AllowUnitNumber
-	_, err = a.redisClient.SetEX(ctx,
+	err = a.redisClient.SetEX(ctx,
 		a.allowNoKey(domain),
 		strconv.FormatInt(an, 10),
-		ttl).Result()
+		ttl).Err()
 	if err != nil {
 		return 0, 0, fmt.Errorf("domain: %s value: %d ttl: %d, err:: %s", domain, an, ttl/time.Second, err)
 	}
@@ -64,24 +64,19 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		}
 
 		if exists == 0 {
-			_, err := a.redisClient.SRem(ctx, enableDomainKey, m).Result()
-			if err != nil {
-				return err
-			}
-			_, err = a.redisClient.Del(ctx, a.allowNoKey(m)).Result()
+			pipe := a.redisClient.Pipeline()
+			pipe.SRem(ctx, enableDomainKey, m)
+			pipe.Del(ctx, a.hostCurrentNumberKey(m), a.allowNoKey(m))
+			_, err := pipe.Exec(ctx)
 			if err != nil && err != redis.Nil {
 				return err
 			}
-			_, err = a.redisClient.Del(ctx, a.hostCurrentNumberKey(m)).Result()
-			if err != nil && err != redis.Nil {
-				return err
-			}
-
 			continue
 		}
 		// キャッシュ削除
 		a.cache.Delete(a.allowNoKey(m))
 
+		// 古いサーバだとSetNXにTTLを渡せない
 		ok, err := a.redisClient.SetNX(ctx, a.lockAllowNoKey(m), "1", 0).Result()
 		if err != nil {
 			e.Logger.Warnf("can't set nx %s %s", m, err)
@@ -89,12 +84,8 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		}
 
 		if ok {
-			hostname, err := os.Hostname()
-			if err != nil {
-				return err
-			}
-			e.Logger.Infof("got lock %v %s", m, hostname)
-			_, err = a.redisClient.Expire(ctx, a.lockAllowNoKey(m), time.Duration(a.config.AllowIntervalSec)*time.Second).Result()
+			e.Logger.Infof("got lock %v", m)
+			err = a.redisClient.Expire(ctx, a.lockAllowNoKey(m), time.Duration(a.config.AllowIntervalSec)*time.Second).Err()
 			if err != nil {
 				return err
 			}

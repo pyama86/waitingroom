@@ -37,7 +37,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
-	emiddleware "github.com/pyama86/ngx_waitingroom/middleware"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -57,16 +56,6 @@ func init() {
 		)
 		secureCookie = sc
 	}
-}
-
-func healthCheck(c echo.Context) error {
-	redisc := c.Get(emiddleware.RedisKey).(*redis.Client)
-	var ctx = context.Background()
-	_, err := redisc.Ping(ctx).Result()
-	if err != nil {
-		return waitingroom.NewError(http.StatusInternalServerError, err, "datastore connection error")
-	}
-	return c.String(http.StatusOK, "ok")
 }
 
 // serverCmd represents the server command
@@ -145,7 +134,6 @@ func runServer(config *waitingroom.Config) error {
 	if err != nil {
 		return err
 	}
-	e.Use(emiddleware.Redis(redisc))
 
 	e.Use(middleware.Recover())
 	cache := waitingroom.NewCache(redisc, config)
@@ -156,7 +144,15 @@ func runServer(config *waitingroom.Config) error {
 		cache,
 	)
 
-	e.GET("/status", healthCheck)
+	e.GET("/status", func(c echo.Context) error {
+		var ctx = context.Background()
+		_, err := redisc.Ping(ctx).Result()
+		if err != nil {
+			return waitingroom.NewError(http.StatusInternalServerError, err, "datastore connection error")
+		}
+		return c.String(http.StatusOK, "ok")
+	},
+	)
 	e.GET("/queues/:domain", queueConfirmation.Do)
 	e.GET("/queues/:domain/:enable", queueConfirmation.Do)
 

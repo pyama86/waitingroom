@@ -60,10 +60,10 @@ func (q *QueueBase) getAllowedNo(ctx context.Context, domain string, usecache bo
 		}
 		return strconv.ParseInt(v, 10, 64)
 	} else {
-		v, err := q.redisClient.Get(ctx, q.allowNoKey(domain)).Result()
+		v, err := q.redisClient.Get(ctx, q.allowNoKey(domain)).Int64()
 		if err != nil {
 			return 0, err
 		}
-		return strconv.ParseInt(v, 10, 64)
+		return v, nil
 	}
 }
