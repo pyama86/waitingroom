@@ -95,31 +95,18 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 			return err
 		}
 		waitingInfo.ID = u.String()
-		ok, err := p.redisClient.SetNX(c.Request().Context(), waitingInfo.delayKey(), "1", 0).Result()
+		waitingInfo.TakeSerialNumberTime = time.Now().Unix() + p.config.EntryDelaySec
+	} else if waitingInfo.TakeSerialNumberTime > 0 && waitingInfo.TakeSerialNumberTime < time.Now().Unix() {
+		v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c.Param(paramDomainKey))).Result()
 		if err != nil {
 			return err
 		}
-
-		if ok {
-			_, err := p.redisClient.Expire(c.Request().Context(),
-				waitingInfo.delayKey(), time.Duration(p.config.EntryDelaySec)*time.Second).Result()
-			if err != nil {
-				return err
-			}
+		_, err = p.redisClient.Expire(c.Request().Context(),
+			p.hostCurrentNumberKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second).Result()
+		if err != nil {
+			return err
 		}
-	} else {
-		if _, err := p.cache.Get(c.Request().Context(), waitingInfo.delayKey()); err == redis.Nil {
-			v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c.Param(paramDomainKey))).Result()
-			if err != nil {
-				return err
-			}
-			_, err = p.redisClient.Expire(c.Request().Context(),
-				p.hostCurrentNumberKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second).Result()
-			if err != nil {
-				return err
-			}
-			waitingInfo.SerialNumber = v
-		}
+		waitingInfo.SerialNumber = v
 	}
 	return nil
 }

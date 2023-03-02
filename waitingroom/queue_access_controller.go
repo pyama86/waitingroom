@@ -41,7 +41,7 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 		strconv.FormatInt(an, 10),
 		ttl).Result()
 	if err != nil {
-		return 0, 0, fmt.Errorf("domain: %s value: %d err:: %s", domain, an, err)
+		return 0, 0, fmt.Errorf("domain: %s value: %d ttl: %d, err:: %s", domain, an, ttl/time.Second, err)
 	}
 
 	return an, int64(ttl / time.Second), nil

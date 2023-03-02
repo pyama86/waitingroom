@@ -40,7 +40,6 @@ func TestAccessController_setAllowedNo(t *testing.T) {
 			}
 			redisClient.Set(context.Background(), tt.domain+"_allow_no", "0", 600)
 			redisClient.Expire(context.Background(), tt.domain+"_allow_no", time.Second*600)
-
 			got, ttl, err := a.setAllowedNo(context.Background(), tt.domain)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AccessController.setAllowedNo() error = %v, wantErr %v", err, tt.wantErr)

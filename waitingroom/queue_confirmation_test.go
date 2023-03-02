@@ -400,7 +400,8 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 		{
 			name: "entry before 11sec",
 			waitingInfo: &WaitingInfo{
-				ID: testRandomString(20),
+				ID:                   testRandomString(20),
+				TakeSerialNumberTime: time.Now().Unix() - 11,
 			},
 			wantSerialNumber: 1,
 			wantErr:          false,
@@ -423,6 +424,7 @@ func TestQueueConfirmation_takeNumberIfPossible(t *testing.T) {
 			c.SetPath("/queues/:domain")
 			c.SetParamNames("domain")
 			c.SetParamValues(testRandomString(20))
+
 			if err := p.takeNumberIfPossible(c, tt.waitingInfo); (err != nil) != tt.wantErr {
 				t.Errorf("QueueConfirmation.takeNumberIfPossible() error = %v, wantErr %v", err, tt.wantErr)
 			}
