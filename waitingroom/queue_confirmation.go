@@ -86,20 +86,20 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 			return err
 		}
 		waitingInfo.ID = u.String()
-		ok, err := p.redisClient.SetNX(c.Request().Context(), p.hostDelayTakeNumberKey(c), "1", 0).Result()
+		ok, err := p.redisClient.SetNX(c.Request().Context(), waitingInfo.delayKey(), "1", 0).Result()
 		if err != nil {
 			return err
 		}
 
 		if ok {
 			_, err := p.redisClient.Expire(c.Request().Context(),
-				p.hostDelayTakeNumberKey(c), time.Duration(p.config.EntryDelaySec)*time.Second).Result()
+				waitingInfo.delayKey(), time.Duration(p.config.EntryDelaySec)*time.Second).Result()
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-		if _, err := p.cache.Get(c.Request().Context(), p.hostDelayTakeNumberKey(c)); err == redis.Nil {
+		if _, err := p.cache.Get(c.Request().Context(), waitingInfo.delayKey()); err == redis.Nil {
 			v, err := p.redisClient.Incr(c.Request().Context(), p.hostCurrentNumberKey(c.Param(paramDomainKey))).Result()
 			if err != nil {
 				return err
@@ -109,7 +109,6 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 			if err != nil {
 				return err
 			}
-
 			waitingInfo.SerialNumber = v
 		}
 	}

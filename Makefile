@@ -5,7 +5,7 @@ test: tidy
 	go test -v -bench=. ./... -benchmem
 
 run:
-	go run . server --config misc/waitingroom/waitingroom.toml
+	go run . server --config misc/waitingroom/waitingroom.toml --log-level debug
 
 .PHONY: build
 build:
