@@ -30,18 +30,18 @@ func (a *AccessController) setAllowedNo(ctx context.Context, domain string) (int
 	if err != nil && err != redis.Nil {
 		return 0, 0, err
 	}
-
-	an = an + a.config.AllowUnitNumber
-	_, err = a.redisClient.Set(ctx,
-		a.allowNoKey(domain),
-		strconv.FormatInt(an, 10),
-		redis.KeepTTL).Result()
-	if err != nil {
-		return 0, 0, fmt.Errorf("domain: %s value: %d err:: %s", domain, an, err)
-	}
 	ttl, err := a.redisClient.TTL(ctx, a.allowNoKey(domain)).Result()
 	if err != nil {
 		return 0, 0, err
+	}
+
+	an = an + a.config.AllowUnitNumber
+	_, err = a.redisClient.SetEX(ctx,
+		a.allowNoKey(domain),
+		strconv.FormatInt(an, 10),
+		ttl).Result()
+	if err != nil {
+		return 0, 0, fmt.Errorf("domain: %s value: %d err:: %s", domain, an, err)
 	}
 
 	return an, int64(ttl / time.Second), nil
