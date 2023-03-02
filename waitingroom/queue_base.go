@@ -54,7 +54,7 @@ func (q *QueueBase) lockAllowNoKey(domain string) string {
 func (q *QueueBase) getAllowedNo(ctx context.Context, domain string, usecache bool) (int64, error) {
 	// 現在許可されている通り番号
 	if usecache {
-		v, err := q.cache.Get(ctx, q.allowNoKey(domain))
+		v, err := q.cache.GetAndFetchIfExpired(ctx, q.allowNoKey(domain))
 		if err != nil {
 			return 0, err
 		}

@@ -25,7 +25,16 @@ func (c *Cache) Delete(key string) {
 	c.cache.Delete(key)
 }
 
-func (c *Cache) Get(ctx context.Context, key string) (string, error) {
+func (c *Cache) Set(key, value string, ttl time.Duration) {
+	c.cache.Set(key, value, ttl)
+}
+
+func (c *Cache) Exists(key string) bool {
+	_, ok := c.cache.Get(key)
+	return ok
+}
+
+func (c *Cache) GetAndFetchIfExpired(ctx context.Context, key string) (string, error) {
 	v, found := c.cache.Get(key)
 	if found {
 		return v.(string), nil

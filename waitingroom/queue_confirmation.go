@@ -34,13 +34,13 @@ func NewQueueConfirmation(
 
 func (p *QueueConfirmation) isAllowedConnection(c echo.Context, waitingInfo *WaitingInfo) bool {
 	// ドメインでqueueが有効ではないので制限されていない
-	if _, err := p.cache.Get(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey))); err == redis.Nil {
+	if _, err := p.cache.GetAndFetchIfExpired(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey))); err == redis.Nil {
 		return true
 	}
 
 	// 許可済みのコネクション
 	if waitingInfo.ID != "" && waitingInfo.SerialNumber != 0 {
-		_, err := p.cache.Get(c.Request().Context(), waitingInfo.ID)
+		_, err := p.cache.GetAndFetchIfExpired(c.Request().Context(), waitingInfo.ID)
 		if err == nil {
 			return true
 		}
@@ -112,7 +112,9 @@ func (p *QueueConfirmation) takeNumberIfPossible(c echo.Context, waitingInfo *Wa
 }
 
 func (p *QueueConfirmation) enableQueue(c echo.Context) error {
-	if c.Param("enable") != "" {
+	cacheKey := p.allowNoKey(c.Param(paramDomainKey)) + "_cache"
+
+	if c.Param("enable") != "" && !p.cache.Exists(cacheKey) {
 		pipe := p.redisClient.Pipeline()
 		// 値があれば上書きしない、なければ作る
 		pipe.SetNX(c.Request().Context(), p.allowNoKey(c.Param(paramDomainKey)), "0", 0)
@@ -120,7 +122,10 @@ func (p *QueueConfirmation) enableQueue(c echo.Context) error {
 			p.allowNoKey(c.Param(paramDomainKey)), time.Duration(p.config.QueueEnableSec)*time.Second)
 		pipe.SAdd(c.Request().Context(), enableDomainKey, c.Param(paramDomainKey))
 		_, err := pipe.Exec(c.Request().Context())
-		return err
+		if err != nil {
+			return err
+		}
+		p.cache.Set(cacheKey, "1", time.Duration(p.config.QueueEnableSec/2)*time.Second)
 	}
 	return nil
 }
