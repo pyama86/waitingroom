@@ -62,6 +62,15 @@ func (p *QueueConfirmation) parseWaitingInfoByCookie(c echo.Context) (*WaitingIn
 			cookie.Value,
 			&waitingInfo); err != nil {
 			c.Logger().Warnf("can't decode cookie: %s", err)
+			c.SetCookie(&http.Cookie{
+				Name:     waitingInfoCookieKey,
+				MaxAge:   -1,
+				Domain:   c.Param(paramDomainKey),
+				Path:     "/",
+				Secure:   true,
+				HttpOnly: true,
+			})
+			return nil, err
 		}
 	}
 	return &waitingInfo, nil
