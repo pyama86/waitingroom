@@ -135,7 +135,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, " can't build waiting info")
 	}
 
-	c.Logger().Debugf("waiting info: %#v", waitingInfo)
+	c.Logger().Debugf("domain %s request waiting info: %#v", c.Param(paramDomainKey), waitingInfo)
 	// キューの有効時間更新
 	if err := p.enableQueue(c); err != nil {
 		return NewError(http.StatusInternalServerError, err, " can't get waiting info")
@@ -175,5 +175,6 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, "can't save waiting info")
 	}
 
+	c.Logger().Debugf("domain %s response waiting info: %#v", c.Param(paramDomainKey), waitingInfo)
 	return c.String(http.StatusTooManyRequests, fmt.Sprintf(`{"serial_no": %d, "allowed_no": %d }`, serialNo, allowedNo))
 }
