@@ -170,9 +170,9 @@ func runServer(config *waitingroom.Config) error {
 		)
 		for {
 			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {
-				e.Logger.Errorf("error allow worker: %s", err)
+				e.Logger.Errorf("error permit worker: %s", err)
 			}
-			time.Sleep(time.Duration(config.AllowIntervalSec) * time.Second)
+			time.Sleep(time.Duration(config.PermitIntervalSec) * time.Second)
 		}
 	}()
 
@@ -195,11 +195,12 @@ func init() {
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
 
 	viper.SetDefault("client_polling_interval_sec", 60)
-	viper.SetDefault("allowed_access_sec", 600)
+	viper.SetDefault("permitted_access_sec", 600)
 	viper.SetDefault("cache_ttl_sec", 20)
+	viper.SetDefault("negative_cache_ttl_sec", 10)
 	viper.SetDefault("entry_delay_sec", 10)
 	viper.SetDefault("queue_enable_sec", 300)
-	viper.SetDefault("allow_interval_sec", 60)
-	viper.SetDefault("allow_unit_number", 1000)
+	viper.SetDefault("permit_interval_sec", 60)
+	viper.SetDefault("permit_unit_number", 1000)
 	rootCmd.AddCommand(serverCmd)
 }

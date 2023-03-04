@@ -14,7 +14,7 @@ def run(enable)
       r = JSON::parse(res.body)
       %w(
         serial_no
-        allowed_no
+        permitted_no
       ).each do |n|
         ho[n] = r[n].to_s
       end
