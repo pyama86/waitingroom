@@ -23,12 +23,12 @@ func TestAccessController_Do(t *testing.T) {
 			name:   "ok",
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+				redisClient.Del(context.Background(), EnableDomainKey)
+				redisClient.ZAdd(context.Background(), EnableDomainKey, &redis.Z{
 					Member: key,
 					Score:  1,
 				})
-				redisClient.SetEX(context.Background(), key+suffixPermittedNo, "1", 3*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, "1", 3*time.Second)
 			},
 			want: 1001,
 		},
@@ -36,8 +36,8 @@ func TestAccessController_Do(t *testing.T) {
 			name:   "skip update because not target domain",
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+				redisClient.Del(context.Background(), EnableDomainKey)
+				redisClient.ZAdd(context.Background(), EnableDomainKey, &redis.Z{
 					Member: "hoge",
 					Score:  1,
 				})
@@ -48,8 +48,8 @@ func TestAccessController_Do(t *testing.T) {
 			name:   "skip update because not enabled domain",
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+				redisClient.Del(context.Background(), EnableDomainKey)
+				redisClient.ZAdd(context.Background(), EnableDomainKey, &redis.Z{
 					Member: "hoge",
 					Score:  1,
 				})
@@ -60,13 +60,13 @@ func TestAccessController_Do(t *testing.T) {
 			name:   "skip update because doesn't reach update time",
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+				redisClient.Del(context.Background(), EnableDomainKey)
+				redisClient.ZAdd(context.Background(), EnableDomainKey, &redis.Z{
 					Member: "hoge",
 					Score:  1,
 				})
-				redisClient.SetEX(context.Background(), key+suffixPermittedNo, "1", 600*time.Second)
-				redisClient.SetEX(context.Background(), key+suffixPermittedNoLock, "1", 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, "1", 600*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNoLock, "1", 10*time.Second)
 			},
 			want: 1,
 		},
@@ -91,7 +91,7 @@ func TestAccessController_Do(t *testing.T) {
 				t.Errorf("AccessController.Do() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			v, err := redisClient.Get(context.Background(), tt.domain+suffixPermittedNo).Result()
+			v, err := redisClient.Get(context.Background(), tt.domain+SuffixPermittedNo).Result()
 			if tt.want != 0 {
 				if (err != nil) != tt.wantErr {
 					t.Errorf("AccessController.Do() error = %v, wantErr %v", err, tt.wantErr)

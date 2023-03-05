@@ -43,8 +43,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+suffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+suffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 			expect: func(t *testing.T, c *Client, r *redis.Client) {
 				if c.ID == "" {
@@ -73,8 +73,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+suffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+suffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 			expect: func(t *testing.T, c *Client, r *redis.Client) {
 				if c.ID == "" {
@@ -119,8 +119,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			wantErr:    false,
 			wantStatus: http.StatusOK,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+suffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+suffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 		},
 	}

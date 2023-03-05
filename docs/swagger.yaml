@@ -1,0 +1,197 @@
+basePath: /v1
+definitions:
+  api.HTTPError:
+    properties:
+      message: {}
+    type: object
+  model.Queue:
+    properties:
+      currentNumber:
+        type: integer
+      domain:
+        type: string
+      permitetdNumber:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: API for WaitingRoom
+  license:
+    name: MIT
+    url: http://github.com/pyama86/ngx_waitingroom/LICENSE
+  title: WaitingRoomAPI
+  version: "1.0"
+paths:
+  /queues:
+    get:
+      consumes:
+      - application/json
+      description: get queues
+      parameters:
+      - description: Queue
+        in: query
+        name: domain
+        type: string
+      - description: Queue
+        in: query
+        name: limit
+        type: integer
+      - description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: per_page
+        in: query
+        minimum: 1
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Queue'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              $ref: '#/definitions/model.Queue'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: get queues
+      tags:
+      - queues
+    post:
+      consumes:
+      - application/json
+      description: create queue
+      parameters:
+      - description: Queue Object
+        in: body
+        name: queue
+        required: true
+        schema:
+          $ref: '#/definitions/model.Queue'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: create queue
+      tags:
+      - queues
+  /queues/{domain}:
+    delete:
+      consumes:
+      - application/json
+      description: delete queue
+      parameters:
+      - description: Queue Name
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: delete queue
+      tags:
+      - queues
+    put:
+      consumes:
+      - application/json
+      description: update queue
+      parameters:
+      - description: Queue Name
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: Queue Object
+        in: body
+        name: queue
+        required: true
+        schema:
+          $ref: '#/definitions/model.Queue'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: update queue
+      tags:
+      - queues
+  /viron:
+    get:
+      consumes:
+      - application/json
+      description: get global menu
+      operationId: viron#get
+      produces:
+      - application/json
+      responses: {}
+      summary: get global menu
+      tags:
+      - viron
+  /viron_authtype:
+    get:
+      consumes:
+      - application/json
+      description: get auth type
+      operationId: viron_authtype#get
+      produces:
+      - application/json
+      responses: {}
+      summary: get auth type
+      tags:
+      - viron
+swagger: "2.0"
+tags:
+- name: queues
+- name: whitelist
+- name: viron

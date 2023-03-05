@@ -21,7 +21,7 @@ func NewAccessController(config *Config, redisClient *redis.Client, cache *Cache
 	}
 }
 func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
-	members, err := a.redisClient.ZRange(ctx, enableDomainKey, 0, -1).Result()
+	members, err := a.redisClient.ZRange(ctx, EnableDomainKey, 0, -1).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil
@@ -38,7 +38,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			return err
 		}
 		if !ok {
-			if err := site.reset(); err != nil {
+			if err := site.Reset(); err != nil {
 				return err
 			}
 			continue

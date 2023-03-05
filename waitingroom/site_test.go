@@ -66,7 +66,6 @@ func TestNewSite(t *testing.T) {
 func TestSite_appendPermitNumber(t *testing.T) {
 	type fields struct {
 		domain             string
-		ctx                context.Context
 		config             *Config
 		permittedNumberKey string
 	}
@@ -220,7 +219,7 @@ func TestSite_appendPermitNumberIfGetLock(t *testing.T) {
 	}
 }
 
-func TestSite_reset(t *testing.T) {
+func TestSite_Reset(t *testing.T) {
 	type fields struct {
 		domain                       string
 		config                       *Config
@@ -268,8 +267,8 @@ func TestSite_reset(t *testing.T) {
 			if tt.beforeHook != nil {
 				tt.beforeHook(s, redisClient)
 			}
-			if err := s.reset(); (err != nil) != tt.wantErr {
-				t.Errorf("Site.reset() error = %v, wantErr %v", err, tt.wantErr)
+			if err := s.Reset(); (err != nil) != tt.wantErr {
+				t.Errorf("Site.Reset() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			for _, k := range []string{
@@ -282,7 +281,7 @@ func TestSite_reset(t *testing.T) {
 					panic(err)
 				}
 				if num != 0 {
-					t.Errorf("Site.reset() can't reset = %v", k)
+					t.Errorf("Site.Reset() can't Reset = %v", k)
 				}
 			}
 		})
@@ -292,9 +291,6 @@ func TestSite_reset(t *testing.T) {
 func TestSite_isEnabledQueue(t *testing.T) {
 	type fields struct {
 		domain             string
-		ctx                context.Context
-		redisC             *redis.Client
-		cache              *Cache
 		config             *Config
 		permittedNumberKey string
 	}
@@ -358,12 +354,9 @@ func TestSite_isEnabledQueue(t *testing.T) {
 	}
 }
 
-func TestSite_enableQueueIfWant(t *testing.T) {
+func TestSite_EnableQueue(t *testing.T) {
 	type fields struct {
 		domain             string
-		ctx                context.Context
-		redisC             *redis.Client
-		cache              *Cache
 		config             *Config
 		permittedNumberKey string
 	}
@@ -401,7 +394,7 @@ func TestSite_enableQueueIfWant(t *testing.T) {
 				s.cache.Set(cacheKey, "1", time.Second*10)
 				redisClient.SetNX(s.ctx, s.permittedNumberKey, "10", 0)
 				redisClient.Expire(s.ctx, s.permittedNumberKey, time.Duration(10)*time.Second)
-				redisClient.ZAdd(s.ctx, enableDomainKey, &redis.Z{
+				redisClient.ZAdd(s.ctx, EnableDomainKey, &redis.Z{
 					Score:  1,
 					Member: s.domain},
 				)
@@ -423,19 +416,14 @@ func TestSite_enableQueueIfWant(t *testing.T) {
 				permittedNumberKey: tt.fields.permittedNumberKey,
 			}
 
-			c, _ := testContext("/", http.MethodPost, map[string]string{})
-			c.SetPath("/queues/:domain/:enable")
-			c.SetParamNames("domain", "enable")
-			c.SetParamValues(tt.fields.domain, "true")
-
 			if tt.beforeHook != nil {
 				tt.beforeHook(s, redisClient)
 			}
-			if err := s.enableQueueIfWant(c); (err != nil) != tt.wantErr {
-				t.Errorf("Site.enableQueueIfWant() error = %v, wantErr %v", err, tt.wantErr)
+			if err := s.EnableQueue(); (err != nil) != tt.wantErr {
+				t.Errorf("Site.EnableQueue() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			rv := redisClient.Get(c.Request().Context(), tt.fields.permittedNumberKey)
+			rv := redisClient.Get(context.Background(), tt.fields.permittedNumberKey)
 			if rv.Err() != nil {
 				t.Errorf("got error %v", rv.Err())
 			}
@@ -444,14 +432,14 @@ func TestSite_enableQueueIfWant(t *testing.T) {
 				t.Errorf("miss match value got:%v want:%v", rv.Val(), tt.want)
 			}
 
-			ev := redisClient.TTL(c.Request().Context(), tt.fields.permittedNumberKey)
+			ev := redisClient.TTL(context.Background(), tt.fields.permittedNumberKey)
 			if ev.Err() != nil {
 				t.Errorf("got error %v", ev.Err())
 			}
 			if ev.Val() != time.Duration(10)*time.Second {
 				t.Errorf("got ttl %v", ev.Val())
 			}
-			val, _ := redisClient.ZScan(c.Request().Context(), enableDomainKey, 0, tt.fields.domain, 1).Val()
+			val, _ := redisClient.ZScan(context.Background(), EnableDomainKey, 0, tt.fields.domain, 1).Val()
 			if len(val) == 0 {
 				t.Errorf("%v is not enabled", tt.fields.domain)
 			}
@@ -465,9 +453,6 @@ func TestSite_enableQueueIfWant(t *testing.T) {
 func TestSite_isPermittedClient(t *testing.T) {
 	type fields struct {
 		domain             string
-		ctx                context.Context
-		redisC             *redis.Client
-		cache              *Cache
 		config             *Config
 		permittedNumberKey string
 	}
@@ -573,9 +558,6 @@ func TestSite_isPermittedClient(t *testing.T) {
 func TestSite_incrCurrentNumber(t *testing.T) {
 	type fields struct {
 		domain           string
-		ctx              context.Context
-		redisC           *redis.Client
-		cache            *Cache
 		config           *Config
 		currentNumberKey string
 	}
@@ -651,9 +633,6 @@ func TestSite_incrCurrentNumber(t *testing.T) {
 func TestSite_currentPermitedNumber(t *testing.T) {
 	type fields struct {
 		domain             string
-		ctx                context.Context
-		redisC             *redis.Client
-		cache              *Cache
 		config             *Config
 		permittedNumberKey string
 	}
@@ -758,9 +737,6 @@ func TestSite_currentPermitedNumber(t *testing.T) {
 func TestSite_isClientPermit(t *testing.T) {
 	type fields struct {
 		domain             string
-		ctx                context.Context
-		redisC             *redis.Client
-		cache              *Cache
 		config             *Config
 		permittedNumberKey string
 	}

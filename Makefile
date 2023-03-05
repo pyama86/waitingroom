@@ -4,7 +4,7 @@ test: tidy
 	go test ./... -v
 	go test -v -bench=. ./... -benchmem
 
-run:
+run: swag
 	go run . server --config misc/waitingroom/waitingroom.toml --log-level debug
 
 .PHONY: build
@@ -16,6 +16,13 @@ ci: lint test
 lint: devdeps
 	@staticcheck ./...
 
+viron:
+	docker build -t viron --file Dockerfile.viron .
+	docker run --rm -it viron --net host
 
 devdeps:
 	@which staticcheck > /dev/null || go install honnef.co/go/tools/cmd/staticcheck@latest
+	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@latest
+
+swag:
+	swag i

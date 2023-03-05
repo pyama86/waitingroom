@@ -40,8 +40,10 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	site := NewSite(c.Request().Context(), c.Param(paramDomainKey), p.config, p.redisClient, p.cache)
 	c.Logger().Debugf("domain %s request client info: %#v", site.domain, client)
 
-	if err := site.enableQueueIfWant(c); err != nil {
-		return NewError(http.StatusInternalServerError, err, " can't enable queue")
+	if c.Param("enable") != "" {
+		if err := site.EnableQueue(); err != nil {
+			return NewError(http.StatusInternalServerError, err, " can't enable queue")
+		}
 	}
 
 	if site.isPermittedClient(client) {

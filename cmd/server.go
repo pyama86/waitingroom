@@ -37,10 +37,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	"github.com/pyama86/ngx_waitingroom/api"
+	"github.com/pyama86/ngx_waitingroom/docs"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 var secureCookie = securecookie.New(
@@ -156,6 +159,12 @@ func runServer(config *waitingroom.Config) error {
 	e.GET("/queues/:domain", queueConfirmation.Do)
 	e.GET("/queues/:domain/:enable", queueConfirmation.Do)
 
+	v1 := e.Group("/v1")
+	api.VironEndpoints(v1)
+	api.QueuesEndpoints(v1, redisc, config, cache)
+
+	docs.SwaggerInfo.Host = config.Listener
+	v1.GET("/swagger/*", echoSwagger.WrapHandler)
 	go func() {
 		if err := e.Start(config.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server", err)

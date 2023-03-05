@@ -21,11 +21,11 @@ type Site struct {
 	appendPermittedNumberLockKey string
 }
 
-const enableDomainKey = "queue-domains"
+const EnableDomainKey = "queue-domains"
 
-const suffixPermittedNo = "_permitted_no"
-const suffixCurrentNo = "_current_no"
-const suffixPermittedNoLock = "_permitted_no_lock"
+const SuffixPermittedNo = "_permitted_no"
+const SuffixCurrentNo = "_current_no"
+const SuffixPermittedNoLock = "_permitted_no_lock"
 
 func NewSite(c context.Context, domain string, config *Config, r *redis.Client, cache *Cache) *Site {
 	return &Site{
@@ -34,9 +34,9 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 		redisC:                       r,
 		cache:                        cache,
 		config:                       config,
-		permittedNumberKey:           domain + suffixPermittedNo,
-		currentNumberKey:             domain + suffixCurrentNo,
-		appendPermittedNumberLockKey: domain + suffixPermittedNoLock,
+		permittedNumberKey:           domain + SuffixPermittedNo,
+		currentNumberKey:             domain + SuffixCurrentNo,
+		appendPermittedNumberLockKey: domain + SuffixPermittedNoLock,
 	}
 }
 
@@ -89,9 +89,9 @@ func (s *Site) flushPermittedNumberCache() {
 	s.cache.Delete(s.permittedNumberKey)
 }
 
-func (s *Site) reset() error {
+func (s *Site) Reset() error {
 	pipe := s.redisC.Pipeline()
-	pipe.ZRem(s.ctx, enableDomainKey, s.domain)
+	pipe.ZRem(s.ctx, EnableDomainKey, s.domain)
 	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey)
 	_, err := pipe.Exec(s.ctx)
 	if err != nil && err != redis.Nil {
@@ -108,18 +108,18 @@ func (s *Site) isEnabledQueue() (bool, error) {
 	return (num > 0), nil
 }
 
-func (s *Site) enableQueueIfWant(c echo.Context) error {
+func (s *Site) EnableQueue() error {
 	cacheKey := s.permittedNumberKey + "_enable_cache"
-	if c.Param("enable") != "" && !s.cache.Exists(cacheKey) {
+	if !s.cache.Exists(cacheKey) {
 		pipe := s.redisC.Pipeline()
 		// 値があれば上書きしない、なければ作る
 		pipe.SetNX(s.ctx, s.permittedNumberKey, "0", 0)
 		pipe.Expire(s.ctx, s.permittedNumberKey, time.Duration(s.config.QueueEnableSec)*time.Second)
-		pipe.ZAdd(s.ctx, enableDomainKey, &redis.Z{
+		pipe.ZAdd(s.ctx, EnableDomainKey, &redis.Z{
 			Score:  1,
 			Member: s.domain,
 		})
-		pipe.Expire(s.ctx, enableDomainKey, time.Duration(s.config.QueueEnableSec)*time.Second)
+		pipe.Expire(s.ctx, EnableDomainKey, time.Duration(s.config.QueueEnableSec)*time.Second)
 		_, err := pipe.Exec(s.ctx)
 		if err != nil {
 			return err

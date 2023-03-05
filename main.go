@@ -23,6 +23,16 @@ package main
 
 import "github.com/pyama86/ngx_waitingroom/cmd"
 
+// @title WaitingRoomAPI
+// @version 1.0
+// @description API for WaitingRoom
+// @license.name MIT
+// @license.url http://github.com/pyama86/ngx_waitingroom/LICENSE
+// @BasePath /v1
+// @tag.name queues
+// @tag.name whitelist
+// @tag.name viron
+
 func main() {
 	cmd.Execute()
 }
