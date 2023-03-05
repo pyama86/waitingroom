@@ -23,6 +23,10 @@ type Site struct {
 
 const enableDomainKey = "queue-domains"
 
+const suffixPermittedNo = "_permitted_no"
+const suffixCurrentNo = "_current_no"
+const suffixPermittedNoLock = "_permitted_no_lock"
+
 func NewSite(c context.Context, domain string, config *Config, r *redis.Client, cache *Cache) *Site {
 	return &Site{
 		domain:                       domain,
@@ -30,19 +34,19 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 		redisC:                       r,
 		cache:                        cache,
 		config:                       config,
-		permittedNumberKey:           domain + "_permitted_no",
-		currentNumberKey:             domain + "_current_no",
-		appendPermittedNumberLockKey: domain + "_permitted_no_lock",
+		permittedNumberKey:           domain + suffixPermittedNo,
+		currentNumberKey:             domain + suffixCurrentNo,
+		appendPermittedNumberLockKey: domain + suffixPermittedNoLock,
 	}
 }
 
 func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	an, err := s.currentPermitedNumber(false)
-	if err != nil && err != redis.Nil {
+	if err != nil {
 		return err
 	}
 
-	ttl, err := s.redisC.TTL(s.ctx, s.currentNumberKey).Result()
+	ttl, err := s.redisC.TTL(s.ctx, s.permittedNumberKey).Result()
 	if err != nil {
 		return err
 	}
@@ -80,14 +84,15 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 	}
 	return nil
 }
+
 func (s *Site) flushPermittedNumberCache() {
 	s.cache.Delete(s.permittedNumberKey)
 }
 
 func (s *Site) reset() error {
 	pipe := s.redisC.Pipeline()
-	pipe.SRem(s.ctx, enableDomainKey, s.domain)
-	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey)
+	pipe.ZRem(s.ctx, enableDomainKey, s.domain)
+	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey)
 	_, err := pipe.Exec(s.ctx)
 	if err != nil && err != redis.Nil {
 		return err
@@ -105,13 +110,16 @@ func (s *Site) isEnabledQueue() (bool, error) {
 
 func (s *Site) enableQueueIfWant(c echo.Context) error {
 	cacheKey := s.permittedNumberKey + "_enable_cache"
-
 	if c.Param("enable") != "" && !s.cache.Exists(cacheKey) {
 		pipe := s.redisC.Pipeline()
 		// 値があれば上書きしない、なければ作る
 		pipe.SetNX(s.ctx, s.permittedNumberKey, "0", 0)
 		pipe.Expire(s.ctx, s.permittedNumberKey, time.Duration(s.config.QueueEnableSec)*time.Second)
-		pipe.SAdd(s.ctx, enableDomainKey, s.domain)
+		pipe.ZAdd(s.ctx, enableDomainKey, &redis.Z{
+			Score:  1,
+			Member: s.domain,
+		})
+		pipe.Expire(s.ctx, enableDomainKey, time.Duration(s.config.QueueEnableSec)*time.Second)
 		_, err := pipe.Exec(s.ctx)
 		if err != nil {
 			return err
@@ -123,8 +131,8 @@ func (s *Site) enableQueueIfWant(c echo.Context) error {
 	return nil
 }
 
-func (s *Site) isPermitClient(client *Client) bool {
-	cacheKey := s.permittedNumberKey + "_disable_cache"
+func (s *Site) isPermittedClient(client *Client) bool {
+	cacheKey := s.permittedNumberKey + "_disable_queue_cache"
 	if s.cache.Exists(cacheKey) {
 		return true
 	}
@@ -133,7 +141,6 @@ func (s *Site) isPermitClient(client *Client) bool {
 	if _, err := s.cache.GetAndFetchIfExpired(
 		s.ctx,
 		s.permittedNumberKey); err == redis.Nil {
-
 		s.cache.Set(cacheKey, "1", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
 		return true
 	}
@@ -148,7 +155,7 @@ func (s *Site) isPermitClient(client *Client) bool {
 	return false
 }
 
-func (s *Site) IncrCurrentNumber() (int64, error) {
+func (s *Site) incrCurrentNumber() (int64, error) {
 	pipe := s.redisC.Pipeline()
 	incr := pipe.Incr(s.ctx, s.currentNumberKey)
 	pipe.Expire(s.ctx,
@@ -175,7 +182,7 @@ func (s *Site) currentPermitedNumber(useCache bool) (int64, error) {
 	return v, nil
 }
 
-func (s *Site) CanClientAccess(c *Client) (bool, error) {
+func (s *Site) isClientPermit(c *Client) (bool, error) {
 	an, err := s.currentPermitedNumber(true)
 	if err != nil {
 		return false, err

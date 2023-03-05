@@ -1,60 +1,14 @@
 package waitingroom
 
-/*
-func TestAccessController_setPermittedNo(t *testing.T) {
-	tests := []struct {
-		name    string
-		domain  string
-		want    int64
-		wantTTL int64
-		wantErr bool
-	}{
-		{
-			name:    "ok",
-			domain:  testRandomString(20),
-			wantTTL: 600,
-			want:    1000,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			redisClient := testRedisClient()
-			a := &AccessController{
-				QueueBase: QueueBase{
-					config: &Config{
-						PermitUnitNumber: 1000,
-						QueueEnableSec:  600,
-					},
-					redisClient: redisClient,
-					cache:       NewCache(redisClient, &Config{}),
-				},
-			}
-			redisClient.Set(context.Background(), tt.domain+"_permit_no", "0", 600)
-			redisClient.Expire(context.Background(), tt.domain+"_permit_no", time.Second*600)
-			got, ttl, err := a.setPermittedNo(context.Background(), tt.domain)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("AccessController.setPermittedNo() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("AccessController.setPermittedNo() = %v, want %v", got, tt.want)
-			}
-			if ttl != tt.wantTTL {
-				t.Errorf("AccessController.setPermittedNo() TTL miss match = %v, want %v", ttl, tt.wantTTL)
-			}
+import (
+	"context"
+	"strconv"
+	"testing"
+	"time"
 
-			v, err := redisClient.Get(context.Background(), tt.domain+"_permit_no").Result()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("AccessController.setPermittedNo() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if v != strconv.Itoa(int(tt.want)) {
-				t.Errorf("AccessController.setPermittedNo() = %v, want %v", v, tt.want)
-			}
-		})
-	}
-}
+	"github.com/go-redis/redis/v8"
+	"github.com/labstack/echo/v4"
+)
 
 func TestAccessController_Do(t *testing.T) {
 	tests := []struct {
@@ -70,8 +24,11 @@ func TestAccessController_Do(t *testing.T) {
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.SAdd(context.Background(), enableDomainKey, key)
-				redisClient.SetEX(context.Background(), key+"_permit_no", "1", 3*time.Second)
+				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+					Member: key,
+					Score:  1,
+				})
+				redisClient.SetEX(context.Background(), key+suffixPermittedNo, "1", 3*time.Second)
 			},
 			want: 1001,
 		},
@@ -80,7 +37,10 @@ func TestAccessController_Do(t *testing.T) {
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.SAdd(context.Background(), enableDomainKey, "hoge")
+				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+					Member: "hoge",
+					Score:  1,
+				})
 			},
 			want: 0,
 		},
@@ -89,18 +49,24 @@ func TestAccessController_Do(t *testing.T) {
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.SAdd(context.Background(), enableDomainKey, key)
+				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+					Member: "hoge",
+					Score:  1,
+				})
 			},
 			want: 0,
 		},
 		{
-			name:   "skip update because not before update time",
+			name:   "skip update because doesn't reach update time",
 			domain: testRandomString(20),
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.Del(context.Background(), enableDomainKey)
-				redisClient.SAdd(context.Background(), enableDomainKey, key)
-				redisClient.SetEX(context.Background(), key+"_permit_no", "1", 600*time.Second)
-				redisClient.SetEX(context.Background(), key+"_lock_permit_no", "1", 10*time.Second)
+				redisClient.ZAdd(context.Background(), enableDomainKey, &redis.Z{
+					Member: "hoge",
+					Score:  1,
+				})
+				redisClient.SetEX(context.Background(), key+suffixPermittedNo, "1", 600*time.Second)
+				redisClient.SetEX(context.Background(), key+suffixPermittedNoLock, "1", 10*time.Second)
 			},
 			want: 1,
 		},
@@ -109,14 +75,12 @@ func TestAccessController_Do(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			redisClient := testRedisClient()
 			a := &AccessController{
-				QueueBase: QueueBase{
-					config: &Config{
-						PermitUnitNumber: 1000,
-						QueueEnableSec:  600,
-					},
-					redisClient: redisClient,
-					cache:       NewCache(redisClient, &Config{}),
+				config: &Config{
+					PermitUnitNumber: 1000,
+					QueueEnableSec:   600,
 				},
+				redisClient: redisClient,
+				cache:       NewCache(redisClient, &Config{}),
 			}
 
 			if tt.beforeHook != nil {
@@ -127,23 +91,22 @@ func TestAccessController_Do(t *testing.T) {
 				t.Errorf("AccessController.Do() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			v, err := redisClient.Get(context.Background(), tt.domain+"_permit_no").Result()
+			v, err := redisClient.Get(context.Background(), tt.domain+suffixPermittedNo).Result()
 			if tt.want != 0 {
 				if (err != nil) != tt.wantErr {
-					t.Errorf("AccessController.setPermittedNo() error = %v, wantErr %v", err, tt.wantErr)
+					t.Errorf("AccessController.Do() error = %v, wantErr %v", err, tt.wantErr)
 					return
 				}
 				if v != strconv.Itoa(int(tt.want)) {
-					t.Errorf("AccessController.setPermittedNo() = %v, want %v", v, tt.want)
+					t.Errorf("AccessController.Do() = %v, want %v", v, tt.want)
 				}
 
 			} else {
 				if err != redis.Nil {
-					t.Errorf("AccessController.setPermittedNo() value = %v error = %v", v, err)
+					t.Errorf("AccessController.Do() value = %v error = %v", v, err)
 					return
 				}
 			}
 		})
 	}
 }
-*/

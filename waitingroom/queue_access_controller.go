@@ -21,7 +21,7 @@ func NewAccessController(config *Config, redisClient *redis.Client, cache *Cache
 	}
 }
 func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
-	members, err := a.redisClient.SMembers(ctx, enableDomainKey).Result()
+	members, err := a.redisClient.ZRange(ctx, enableDomainKey, 0, -1).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil

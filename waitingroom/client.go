@@ -68,7 +68,7 @@ func (c *Client) fillSerialNumber(site *Site) (int64, error) {
 		c.TakeSerialNumberTime = time.Now().Unix() + site.config.EntryDelaySec
 		c.SerialNumber = 0
 	} else if c.canTakeSerialNumber() {
-		currentNo, err := site.IncrCurrentNumber()
+		currentNo, err := site.incrCurrentNumber()
 		if err != nil {
 			return 0, err
 		}

@@ -44,8 +44,8 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, " can't enable queue")
 	}
 
-	if site.isPermitClient(client) {
-		return c.JSON(http.StatusOK, "permitted connection")
+	if site.isPermittedClient(client) {
+		return c.JSON(http.StatusOK, "permitted client")
 	}
 
 	clientSerialNumber, err := client.fillSerialNumber(site)
@@ -54,7 +54,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 
 	if clientSerialNumber != 0 {
-		ok, err := site.CanClientAccess(client)
+		ok, err := site.isClientPermit(client)
 		if err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't jude permit access")
 		}
