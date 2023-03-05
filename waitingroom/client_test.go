@@ -200,7 +200,8 @@ func TestClient_fillSerialNumber(t *testing.T) {
 				config: &Config{
 					QueueEnableSec: 10,
 				},
-				ctx: context.Background(),
+				ctx:              context.Background(),
+				currentNumberKey: testRandomString(20),
 			},
 			want:    1,
 			wantErr: false,
