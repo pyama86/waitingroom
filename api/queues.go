@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
@@ -20,10 +19,10 @@ type HTTPError struct {
 // getQueues is getting queues.
 // @Summary get queues
 // @Description get queues
+// @ID queues#get
 // @Accept  json
 // @Produce  json
-// @Param domain query string false "Queue"
-// @Param limit query int false "Queue"
+// @Param domain query string false "Queue Domain"
 // @Param page query int false "page" minimum(1)
 // @Param per_page query int false "per_page" minimum(1)
 // @Success 200 {array} model.Queue
@@ -32,17 +31,10 @@ type HTTPError struct {
 // @Router /queues [get]
 // @Tags queues
 func (h *queueHandler) getQueues(c echo.Context) error {
-	page, err := strconv.ParseInt(c.QueryParam("page"), 10, 64)
+	page, perPage, err := paginate(c)
 	if err != nil {
+		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
-	}
-
-	if page == 0 {
-		page = 1
-	}
-	perPage, err := strconv.ParseInt(c.QueryParam("per_page"), 10, 64)
-	if perPage > 100 {
-		perPage = 100
 	}
 
 	r, err := h.queueModel.GetQueues(c.Request().Context(), perPage, page)
@@ -50,6 +42,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 		if err == redis.Nil {
 			return c.JSON(http.StatusNotFound, err)
 		}
+		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.JSON(http.StatusOK, r)
@@ -58,6 +51,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 // updateQueueByName is update queue.
 // @Summary update queue
 // @Description update queue
+// @ID queues#put
 // @Accept  json
 // @Produce  json
 // @Param domain path string true "Queue Name"
@@ -77,7 +71,7 @@ func (h *queueHandler) updateQueueByName(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	if err := h.queueModel.UpdateQueues(c.Request().Context(), c.Param("domain"), q); err != nil {
+	if err := h.queueModel.UpdateQueues(c.Request().Context(), q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 	return c.JSON(http.StatusOK, nil)
@@ -86,6 +80,7 @@ func (h *queueHandler) updateQueueByName(c echo.Context) error {
 // deleteQueueByName is delete queue.
 // @Summary delete queue
 // @Description delete queue
+// @ID queues#delete
 // @Accept  json
 // @Produce  json
 // @Param domain path string true "Queue Name"
@@ -106,6 +101,7 @@ func (h *queueHandler) deleteQueueByName(c echo.Context) error {
 // createQueue is create queue.
 // @Summary create queue
 // @Description create queue
+// @ID queues#post
 // @Accept  json
 // @Produce  json
 // @Param queue body model.Queue true "Queue Object"
@@ -124,11 +120,9 @@ func (h *queueHandler) createQueue(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	if err := h.queueModel.CreateQueues(c.Request().Context(), c.Param("domain"), q); err != nil {
+	if err := h.queueModel.CreateQueues(c.Request().Context(), q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
-	return c.JSON(http.StatusOK, nil)
-
 	return c.JSON(http.StatusCreated, nil)
 }
 

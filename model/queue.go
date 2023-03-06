@@ -2,7 +2,7 @@ package model
 
 import (
 	"context"
-	"strconv"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
@@ -10,13 +10,13 @@ import (
 
 type QueueModel struct {
 	redisC *redis.Client
-	cache  *waitingroom.Cache
 	config *waitingroom.Config
+	cache  *waitingroom.Cache
 }
 type Queue struct {
-	Domain          string
-	CurrentNumber   int64
-	PermitetdNumber int64
+	Domain          string `json:"domain" validate:"required,fqdn"`
+	CurrentNumber   int64  `json:"current_number" validate:"gte=0"`
+	PermitetdNumber int64  `json:"permitted_number" validate:"gte=0"`
 }
 
 func NewQueueModel(r *redis.Client, config *waitingroom.Config, cache *waitingroom.Cache) *QueueModel {
@@ -33,38 +33,34 @@ func (q *QueueModel) GetQueues(ctx context.Context, perPage, page int64) ([]Queu
 	}
 	ret := []Queue{}
 	for _, domain := range domains {
-		cn, err := q.cache.GetAndFetchIfExpired(ctx, domain+waitingroom.SuffixCurrentNo)
+		cn, err := q.redisC.Get(ctx, domain+waitingroom.SuffixCurrentNo).Int64()
 		if err != nil {
 			return nil, err
 		}
-		pn, err := q.cache.GetAndFetchIfExpired(ctx, domain+waitingroom.SuffixPermittedNo)
+		pn, err := q.redisC.Get(ctx, domain+waitingroom.SuffixPermittedNo).Int64()
 		if err != nil {
 			return nil, err
 		}
 
-		icn, err := strconv.ParseInt(cn, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		ipn, err := strconv.ParseInt(pn, 10, 64)
-		if err != nil {
-			return nil, err
-		}
 		ret = append(ret, Queue{
-			CurrentNumber:   icn,
-			PermitetdNumber: ipn,
+			CurrentNumber:   cn,
+			PermitetdNumber: pn,
 			Domain:          domain,
 		})
 	}
 	return ret, nil
 }
 
-func (q *QueueModel) UpdateQueues(ctx context.Context, domain string, m *Queue) error {
-	err := q.redisC.Set(ctx, domain+waitingroom.SuffixCurrentNo, m.CurrentNumber, 0).Err()
+func (q *QueueModel) UpdateQueues(ctx context.Context, m *Queue) error {
+	err := q.redisC.Expire(ctx, waitingroom.EnableDomainKey, time.Duration(q.config.QueueEnableSec*2)*time.Second).Err()
 	if err != nil {
 		return err
 	}
-	err = q.redisC.Set(ctx, domain+waitingroom.SuffixPermittedNo, m.PermitetdNumber, 0).Err()
+	err = q.redisC.SetEX(ctx, m.Domain+waitingroom.SuffixCurrentNo, m.CurrentNumber, time.Duration(q.config.QueueEnableSec)*time.Second).Err()
+	if err != nil {
+		return err
+	}
+	err = q.redisC.Set(ctx, m.Domain+waitingroom.SuffixPermittedNo, m.PermitetdNumber, time.Duration(q.config.QueueEnableSec)*time.Second).Err()
 	if err != nil {
 		return err
 	}
@@ -72,12 +68,12 @@ func (q *QueueModel) UpdateQueues(ctx context.Context, domain string, m *Queue) 
 	return nil
 }
 
-func (q *QueueModel) CreateQueues(ctx context.Context, domain string, m *Queue) error {
-	site := waitingroom.NewSite(ctx, domain, q.config, q.redisC, q.cache)
+func (q *QueueModel) CreateQueues(ctx context.Context, m *Queue) error {
+	site := waitingroom.NewSite(ctx, m.Domain, q.config, q.redisC, q.cache)
 	if err := site.EnableQueue(); err != nil {
 		return err
 	}
-	return q.UpdateQueues(ctx, domain, m)
+	return q.UpdateQueues(ctx, m)
 }
 func (q *QueueModel) DeleteQueues(ctx context.Context, domain string) error {
 	site := waitingroom.NewSite(ctx, domain, q.config, q.redisC, q.cache)

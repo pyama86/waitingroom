@@ -162,9 +162,11 @@ func runServer(config *waitingroom.Config) error {
 	v1 := e.Group("/v1")
 	api.VironEndpoints(v1)
 	api.QueuesEndpoints(v1, redisc, config, cache)
+	api.WhiteListEndpoints(v1, redisc)
 
 	docs.SwaggerInfo.Host = config.Listener
 	v1.GET("/swagger/*", echoSwagger.WrapHandler)
+	e.Use(middleware.CORS())
 	go func() {
 		if err := e.Start(config.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server", err)

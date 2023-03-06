@@ -16,9 +16,10 @@ ci: lint test
 lint: devdeps
 	@staticcheck ./...
 
+.PHONY: viron 
 viron:
-	docker build -t viron --file Dockerfile.viron .
-	docker run --rm -it viron --net host
+	docker build -t viron viron
+	docker run -p 9090:9090 --rm -it viron
 
 devdeps:
 	@which staticcheck > /dev/null || go install honnef.co/go/tools/cmd/staticcheck@latest

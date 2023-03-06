@@ -49,7 +49,7 @@ func vironGlobalMenu(c echo.Context) error {
             "path": "/queues"
           },
 	  "query": [
-	    { key: "domain", type: "string" },
+	    { "key": "domain", "type": "string" }
           ],
 	  "primary": "domain",
           "name": "Queue",
@@ -58,7 +58,7 @@ func vironGlobalMenu(c echo.Context) error {
 	  "table_labels": [
 	    "domain",
             "current_no",
-            "permitted_no",
+            "permitted_no"
 	  ]
         }
       ]
@@ -74,13 +74,14 @@ func vironGlobalMenu(c echo.Context) error {
             "path": "/whitelist"
           },
 	  "query": [
-	    { key: "domain", type: "string" },
+	    { "key": "domain", "type": "string" }
           ],
+	  "primary": "domain",
           "name": "WhiteList",
 	  "style": "table",
-	  "primary": "name",
+          "pagination": true,
 	  "table_labels": [
-	    "domain",
+	    "domain"
 	  ]
         }
       ]

@@ -22,6 +22,7 @@ type Site struct {
 }
 
 const EnableDomainKey = "queue-domains"
+const WhiteListKey = "queue-whitelist"
 
 const SuffixPermittedNo = "_permitted_no"
 const SuffixCurrentNo = "_current_no"
@@ -100,6 +101,14 @@ func (s *Site) Reset() error {
 	return nil
 }
 
+func (s *Site) isInWhitelist() (bool, error) {
+	val, err := s.cache.ZScanAndFetchIfExpired(s.ctx, WhiteListKey, s.domain)
+	if len(val) != 0 {
+		return true, nil
+	}
+	return false, err
+}
+
 func (s *Site) isEnabledQueue() (bool, error) {
 	num, err := s.redisC.Exists(s.ctx, s.permittedNumberKey).Uint64()
 	if err != nil {
@@ -119,7 +128,7 @@ func (s *Site) EnableQueue() error {
 			Score:  1,
 			Member: s.domain,
 		})
-		pipe.Expire(s.ctx, EnableDomainKey, time.Duration(s.config.QueueEnableSec)*time.Second)
+		pipe.Expire(s.ctx, EnableDomainKey, time.Duration(s.config.QueueEnableSec*2)*time.Second)
 		_, err := pipe.Exec(s.ctx)
 		if err != nil {
 			return err

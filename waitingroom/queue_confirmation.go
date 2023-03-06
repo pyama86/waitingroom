@@ -39,7 +39,14 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 	site := NewSite(c.Request().Context(), c.Param(paramDomainKey), p.config, p.redisClient, p.cache)
 	c.Logger().Debugf("domain %s request client info: %#v", site.domain, client)
+	ok, err := site.isInWhitelist()
+	if err != nil {
+		return NewError(http.StatusInternalServerError, err, " can't get whitelist")
+	}
 
+	if ok {
+		return c.JSON(http.StatusOK, "site is in whitelist")
+	}
 	if c.Param("enable") != "" {
 		if err := site.EnableQueue(); err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't enable queue")

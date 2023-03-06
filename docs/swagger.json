@@ -25,17 +25,12 @@
                     "queues"
                 ],
                 "summary": "get queues",
+                "operationId": "queues#get",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Queue",
+                        "description": "Queue Domain",
                         "name": "domain",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Queue",
-                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -92,6 +87,7 @@
                     "queues"
                 ],
                 "summary": "create queue",
+                "operationId": "queues#post",
                 "parameters": [
                     {
                         "description": "Queue Object",
@@ -141,6 +137,7 @@
                     "queues"
                 ],
                 "summary": "update queue",
+                "operationId": "queues#put",
                 "parameters": [
                     {
                         "type": "string",
@@ -195,6 +192,7 @@
                     "queues"
                 ],
                 "summary": "delete queue",
+                "operationId": "queues#delete",
                 "parameters": [
                     {
                         "type": "string",
@@ -262,6 +260,166 @@
                 "operationId": "viron_authtype#get",
                 "responses": {}
             }
+        },
+        "/whitelist": {
+            "get": {
+                "description": "get whiteLists",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "get whiteLists",
+                "operationId": "whitelist#get",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "WhiteList Domain",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "per_page",
+                        "name": "per_page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.WhiteList"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.WhiteList"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "create whiteList",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "create whiteList",
+                "operationId": "whitelist#post",
+                "parameters": [
+                    {
+                        "description": "WhiteList Object",
+                        "name": "whitelist",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WhiteList"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    }
+                }
+            }
+        },
+        "/whitelist/{domain}": {
+            "delete": {
+                "description": "delete whiteList",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "delete whiteList",
+                "operationId": "whitelist#delete",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "WhiteList Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -273,15 +431,31 @@
         },
         "model.Queue": {
             "type": "object",
+            "required": [
+                "domain"
+            ],
             "properties": {
-                "currentNumber": {
-                    "type": "integer"
+                "current_number": {
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "domain": {
                     "type": "string"
                 },
-                "permitetdNumber": {
-                    "type": "integer"
+                "permitted_number": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "model.WhiteList": {
+            "type": "object",
+            "required": [
+                "domain"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string"
                 }
             }
         }

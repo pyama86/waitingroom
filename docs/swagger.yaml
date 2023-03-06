@@ -6,12 +6,23 @@ definitions:
     type: object
   model.Queue:
     properties:
-      currentNumber:
+      current_number:
+        minimum: 0
         type: integer
       domain:
         type: string
-      permitetdNumber:
+      permitted_number:
+        minimum: 0
         type: integer
+    required:
+    - domain
+    type: object
+  model.WhiteList:
+    properties:
+      domain:
+        type: string
+    required:
+    - domain
     type: object
 info:
   contact: {}
@@ -27,15 +38,12 @@ paths:
       consumes:
       - application/json
       description: get queues
+      operationId: queues#get
       parameters:
-      - description: Queue
+      - description: Queue Domain
         in: query
         name: domain
         type: string
-      - description: Queue
-        in: query
-        name: limit
-        type: integer
       - description: page
         in: query
         minimum: 1
@@ -72,6 +80,7 @@ paths:
       consumes:
       - application/json
       description: create queue
+      operationId: queues#post
       parameters:
       - description: Queue Object
         in: body
@@ -104,6 +113,7 @@ paths:
       consumes:
       - application/json
       description: delete queue
+      operationId: queues#delete
       parameters:
       - description: Queue Name
         in: path
@@ -134,6 +144,7 @@ paths:
       consumes:
       - application/json
       description: update queue
+      operationId: queues#put
       parameters:
       - description: Queue Name
         in: path
@@ -190,6 +201,113 @@ paths:
       summary: get auth type
       tags:
       - viron
+  /whitelist:
+    get:
+      consumes:
+      - application/json
+      description: get whiteLists
+      operationId: whitelist#get
+      parameters:
+      - description: WhiteList Domain
+        in: query
+        name: domain
+        type: string
+      - description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: per_page
+        in: query
+        minimum: 1
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.WhiteList'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              $ref: '#/definitions/model.WhiteList'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: get whiteLists
+      tags:
+      - whitelist
+    post:
+      consumes:
+      - application/json
+      description: create whiteList
+      operationId: whitelist#post
+      parameters:
+      - description: WhiteList Object
+        in: body
+        name: whitelist
+        required: true
+        schema:
+          $ref: '#/definitions/model.WhiteList'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: create whiteList
+      tags:
+      - whitelist
+  /whitelist/{domain}:
+    delete:
+      consumes:
+      - application/json
+      description: delete whiteList
+      operationId: whitelist#delete
+      parameters:
+      - description: WhiteList Domain
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPError'
+      summary: delete whiteList
+      tags:
+      - whitelist
 swagger: "2.0"
 tags:
 - name: queues

@@ -814,3 +814,71 @@ func TestSite_isClientPermit(t *testing.T) {
 		})
 	}
 }
+
+func TestSite_isSiteIsInWhitelist(t *testing.T) {
+	type fields struct {
+		domain string
+		redisC *redis.Client
+		cache  *Cache
+		config *Config
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		want       bool
+		wantErr    bool
+		beforeHook func(string, *redis.Client)
+	}{
+		{
+			name: "has not whitelist",
+			fields: fields{
+				domain: testRandomString(10),
+				config: &Config{
+					CacheTTLSec: 10,
+				},
+			},
+			wantErr: false,
+			want:    false,
+		},
+		{
+			name: "is in whitelist",
+			fields: fields{
+				domain: testRandomString(10),
+				config: &Config{
+					CacheTTLSec: 10,
+				},
+			},
+			beforeHook: func(domain string, redisC *redis.Client) {
+				if err := redisC.ZAdd(context.Background(), WhiteListKey, &redis.Z{Score: 1, Member: domain}).Err(); err != nil {
+					panic(err)
+				}
+			},
+			wantErr: false,
+			want:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			redisC := testRedisClient()
+			cache := NewCache(redisC, tt.fields.config)
+			s := &Site{
+				domain: tt.fields.domain,
+				ctx:    context.Background(),
+				redisC: redisC,
+				cache:  cache,
+				config: tt.fields.config,
+			}
+			if tt.beforeHook != nil {
+				tt.beforeHook(tt.fields.domain, redisC)
+			}
+			got, err := s.isInWhitelist()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Site.isInWhitelist() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Site.isInWhitelist() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
