@@ -22,16 +22,18 @@ func NewWhiteListModel(r *redis.Client) *WhiteListModel {
 		redisC: r,
 	}
 }
-func (q *WhiteListModel) GetWhiteList(ctx context.Context, perPage, page int64) ([]WhiteList, error) {
+func (q *WhiteListModel) GetWhiteList(ctx context.Context, perPage, page int64) ([]WhiteList, int64, error) {
 	members, err := q.redisC.ZRange(ctx, waitingroom.WhiteListKey, perPage*(page-1), page*perPage).Result()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	ret := []WhiteList{}
 	for _, m := range members {
 		ret = append(ret, WhiteList{Domain: m})
 	}
-	return ret, nil
+
+	total := q.redisC.ZCount(ctx, waitingroom.WhiteListKey, "-inf", "+inf").Val()
+	return ret, total, nil
 }
 
 func (q *WhiteListModel) CreateWhiteList(ctx context.Context, domain string) error {

@@ -26,20 +26,20 @@ func NewQueueModel(r *redis.Client, config *waitingroom.Config, cache *waitingro
 		config: config,
 	}
 }
-func (q *QueueModel) GetQueues(ctx context.Context, perPage, page int64) ([]Queue, error) {
+func (q *QueueModel) GetQueues(ctx context.Context, perPage, page int64) ([]Queue, int64, error) {
 	domains, err := q.redisC.ZRange(ctx, waitingroom.EnableDomainKey, perPage*(page-1), page*perPage).Result()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	ret := []Queue{}
 	for _, domain := range domains {
 		cn, err := q.redisC.Get(ctx, domain+waitingroom.SuffixCurrentNo).Int64()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		pn, err := q.redisC.Get(ctx, domain+waitingroom.SuffixPermittedNo).Int64()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		ret = append(ret, Queue{
@@ -48,7 +48,8 @@ func (q *QueueModel) GetQueues(ctx context.Context, perPage, page int64) ([]Queu
 			Domain:          domain,
 		})
 	}
-	return ret, nil
+	total := q.redisC.ZCount(ctx, waitingroom.EnableDomainKey, "-inf", "+inf").Val()
+	return ret, total, nil
 }
 
 func (q *QueueModel) UpdateQueues(ctx context.Context, m *Queue) error {

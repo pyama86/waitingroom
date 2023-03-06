@@ -37,6 +37,8 @@ func paginate(c echo.Context) (int64, int64, error) {
 		perPage = perP
 	}
 
+	c.Response().Header().Set("x-pagination-current-page", strconv.FormatInt(page, 10))
+	c.Response().Header().Set("x-pagination-limit", strconv.FormatInt(perPage, 10))
 	return page, perPage, nil
 }
 
@@ -61,7 +63,7 @@ func (h *whiteListHandler) getWhiteList(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 
-	r, err := h.whiteListModel.GetWhiteList(c.Request().Context(), perPage, page)
+	r, total, err := h.whiteListModel.GetWhiteList(c.Request().Context(), perPage, page)
 	if err != nil {
 		if err == redis.Nil {
 			return c.JSON(http.StatusNotFound, err)
@@ -69,6 +71,7 @@ func (h *whiteListHandler) getWhiteList(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
+	c.Response().Header().Set("x-pagination-total-pages", strconv.FormatInt(total, 10))
 	return c.JSON(http.StatusOK, r)
 }
 

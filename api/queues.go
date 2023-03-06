@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
@@ -37,7 +38,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 
-	r, err := h.queueModel.GetQueues(c.Request().Context(), perPage, page)
+	r, total, err := h.queueModel.GetQueues(c.Request().Context(), perPage, page)
 	if err != nil {
 		if err == redis.Nil {
 			return c.JSON(http.StatusNotFound, err)
@@ -45,6 +46,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
+	c.Response().Header().Set("x-pagination-total-pages", strconv.FormatInt(total, 10))
 	return c.JSON(http.StatusOK, r)
 }
 
