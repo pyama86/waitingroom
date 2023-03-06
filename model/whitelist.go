@@ -9,8 +9,6 @@ import (
 
 type WhiteListModel struct {
 	redisC *redis.Client
-	cache  *waitingroom.Cache
-	config *waitingroom.Config
 }
 
 type WhiteList struct {

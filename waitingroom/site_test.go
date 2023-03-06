@@ -818,8 +818,6 @@ func TestSite_isClientPermit(t *testing.T) {
 func TestSite_isSiteIsInWhitelist(t *testing.T) {
 	type fields struct {
 		domain string
-		redisC *redis.Client
-		cache  *Cache
 		config *Config
 	}
 	tests := []struct {
@@ -878,6 +876,10 @@ func TestSite_isSiteIsInWhitelist(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("Site.isInWhitelist() = %v, want %v", got, tt.want)
+			}
+
+			if !cache.Exists(WhiteListKey + tt.fields.domain) {
+				t.Error("Site.isInWhitelist() have not cache")
 			}
 		})
 	}

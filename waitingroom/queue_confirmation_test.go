@@ -123,6 +123,29 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 		},
+		{
+			name: "is in whitelist",
+			fields: fields{
+				sc:          secureCookie,
+				redisClient: redisClient,
+				cache:       cache,
+				config: &Config{
+					EntryDelaySec:      10,
+					PermittedAccessSec: 10,
+				},
+			},
+			client: Client{
+				ID:                   "dummy",
+				TakeSerialNumberTime: time.Now().Unix() - 1,
+			},
+			wantErr:    false,
+			wantStatus: http.StatusOK,
+			beforeHook: func(key string, redisClient *redis.Client) {
+				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.ZAdd(context.Background(), WhiteListKey, &redis.Z{Member: key, Score: 1})
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/patrickmn/go-cache"
 	gocache "github.com/patrickmn/go-cache"
 )
 
@@ -46,7 +45,7 @@ func (c *Cache) GetAndFetchIfExpired(ctx context.Context, key string) (string, e
 		return "", err
 	}
 
-	c.cache.Set(key, rv, cache.DefaultExpiration)
+	c.cache.Set(key, rv, gocache.DefaultExpiration)
 	return rv, nil
 }
 
@@ -64,6 +63,6 @@ func (c *Cache) ZScanAndFetchIfExpired(ctx context.Context, key, target string) 
 		}
 		return nil, err
 	}
-	c.cache.Set(cacheKey, rv, cache.DefaultExpiration)
+	c.cache.Set(cacheKey, rv, gocache.DefaultExpiration)
 	return rv, nil
 }
