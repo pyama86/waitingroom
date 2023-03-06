@@ -37,8 +37,8 @@ func paginate(c echo.Context) (int64, int64, error) {
 		perPage = perP
 	}
 
-	c.Response().Header().Set("x-pagination-current-page", strconv.FormatInt(page, 10))
-	c.Response().Header().Set("x-pagination-limit", strconv.FormatInt(perPage, 10))
+	c.Response().Header().Set("X-Pagination-Current-Page", strconv.FormatInt(page, 10))
+	c.Response().Header().Set("X-Pagination-Limit", strconv.FormatInt(perPage, 10))
 	return page, perPage, nil
 }
 
@@ -71,7 +71,7 @@ func (h *whiteListHandler) getWhiteList(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	c.Response().Header().Set("x-pagination-total-pages", strconv.FormatInt(total, 10))
+	c.Response().Header().Set("X-Pagination-Total-Pages", strconv.FormatInt(total, 10))
 	return c.JSON(http.StatusOK, r)
 }
 

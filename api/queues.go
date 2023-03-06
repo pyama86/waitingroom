@@ -46,7 +46,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	c.Response().Header().Set("x-pagination-total-pages", strconv.FormatInt(total, 10))
+	c.Response().Header().Set("X-Pagination-Total-Pages", strconv.FormatInt(total, 10))
 	return c.JSON(http.StatusOK, r)
 }
 

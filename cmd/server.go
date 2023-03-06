@@ -165,6 +165,11 @@ func runServer(config *waitingroom.Config) error {
 	api.WhiteListEndpoints(v1, redisc)
 
 	docs.SwaggerInfo.Host = config.Listener
+	middleware.DefaultCORSConfig.AllowHeaders = []string{
+		"X-Pagination-Limit",
+		"X-Pagination-Total-Pages",
+		"X-Pagination-Current-Page",
+	}
 	v1.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.Use(middleware.CORS())
 	go func() {
