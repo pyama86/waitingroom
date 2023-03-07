@@ -76,9 +76,13 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, "can't save client info")
 	}
 
-	cp, err := site.currentPermitedNumber(true)
-	if err != nil {
-		return NewError(http.StatusInternalServerError, err, "can't get current no")
+	cp := int64(0)
+	if client.SerialNumber != 0 {
+		lcp, err := site.currentPermitedNumber(true)
+		if err != nil {
+			return NewError(http.StatusInternalServerError, err, "can't get current no")
+		}
+		cp = lcp
 	}
 
 	return c.String(http.StatusTooManyRequests, fmt.Sprintf(`{"serial_no": %d, "permitted_no": %d }`,
