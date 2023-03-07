@@ -38,5 +38,5 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          context: viron
+          context: ./viron
           tags: docker.io/pyama/viron:1
