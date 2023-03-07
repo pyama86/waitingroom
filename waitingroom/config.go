@@ -11,5 +11,5 @@ type Config struct {
 	PermitUnitNumber    int64  `mapstructure:"permit_unit_number,omitempty"`     // アクセス許可する単位(PermitIntervalSecあたりPermitUnitNumber許可)
 	CacheTTLSec         int    `mapstructure:"cache_ttl_sec,omitempty"`          // ローカルメモリキャッシュTTL
 	NegativeCacheTTLSec int    `mapstructure:"negative_cache_ttl_sec,omitempty"` // ローカルメモリネガティブキャッシュTTL
-	PublicURL           string `mapstructure:"public_url,omitempty"`             // 公開URL
+	PublicURL           string `mapstructure:"public_url"`                       // 公開URL
 }

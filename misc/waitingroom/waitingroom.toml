@@ -1,4 +1,5 @@
 listener = "127.0.0.1:8080"
+public_url = "127.0.0.1:8080"
 # 30秒あたり100クライアント接続許可
 permit_interval_sec = 30
 permit_unit_number = 100

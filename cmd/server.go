@@ -208,8 +208,9 @@ func init() {
 	viper.BindPFlag("LogLevel", serverCmd.PersistentFlags().Lookup("log-level"))
 
 	serverCmd.PersistentFlags().String("listener", "localhost:18080", "listen host")
-	serverCmd.PersistentFlags().String("public_url", "localhost:18080", "public url for swagger")
+	serverCmd.PersistentFlags().String("public-url", "localhost:18080", "public url for swagger")
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
+	viper.BindPFlag("PublicURL", serverCmd.PersistentFlags().Lookup("public-url"))
 
 	viper.SetDefault("client_polling_interval_sec", 60)
 	viper.SetDefault("permitted_access_sec", 600)
