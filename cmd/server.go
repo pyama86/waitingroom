@@ -172,7 +172,7 @@ func runServer(config *waitingroom.Config) error {
 	api.QueuesEndpoints(v1, redisc, config, cache)
 	api.WhiteListEndpoints(v1, redisc)
 
-	docs.SwaggerInfo.Host = config.PublicURL
+	docs.SwaggerInfo.Host = config.PublicHost
 	middleware.DefaultCORSConfig.AllowHeaders = []string{
 		"X-Pagination-Limit",
 		"X-Pagination-Total-Pages",
@@ -216,9 +216,9 @@ func init() {
 	viper.BindPFlag("LogLevel", serverCmd.PersistentFlags().Lookup("log-level"))
 
 	serverCmd.PersistentFlags().String("listener", "localhost:18080", "listen host")
-	serverCmd.PersistentFlags().String("public-url", "localhost:18080", "public url for swagger")
+	serverCmd.PersistentFlags().String("public-host", "localhost:18080", "public host for swagger")
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
-	viper.BindPFlag("PublicURL", serverCmd.PersistentFlags().Lookup("public-url"))
+	viper.BindPFlag("PublicHost", serverCmd.PersistentFlags().Lookup("public-host"))
 
 	viper.SetDefault("client_polling_interval_sec", 60)
 	viper.SetDefault("permitted_access_sec", 600)
@@ -228,6 +228,6 @@ func init() {
 	viper.SetDefault("queue_enable_sec", 300)
 	viper.SetDefault("permit_interval_sec", 60)
 	viper.SetDefault("permit_unit_number", 1000)
-	viper.SetDefault("public_url", "localhost:18080")
+	viper.SetDefault("public_host", "localhost:18080")
 	rootCmd.AddCommand(serverCmd)
 }
