@@ -87,13 +87,13 @@ var serverCmd = &cobra.Command{
 		if err := validate.Struct(config); err != nil {
 			logrus.Fatal(err)
 		}
-		if err := runServer(config); err != nil {
+		if err := runServer(cmd, config); err != nil {
 			logrus.Fatal(err)
 		}
 	},
 }
 
-func runServer(config *waitingroom.Config) error {
+func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	e := echo.New()
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: func(c echo.Context) bool {
@@ -173,6 +173,16 @@ func runServer(config *waitingroom.Config) error {
 	api.WhiteListEndpoints(v1, redisc)
 
 	docs.SwaggerInfo.Host = config.PublicHost
+	dev, err := cmd.PersistentFlags().GetBool("dev")
+	if err != nil {
+		return waitingroom.NewError(http.StatusInternalServerError, err, "can't parse dev flag")
+	}
+
+	if dev {
+		docs.SwaggerInfo.Schemes = []string{"http"}
+	} else {
+		docs.SwaggerInfo.Schemes = []string{"https"}
+	}
 	middleware.DefaultCORSConfig.AllowHeaders = []string{
 		"X-Pagination-Limit",
 		"X-Pagination-Total-Pages",
@@ -219,6 +229,8 @@ func init() {
 	serverCmd.PersistentFlags().String("public-host", "localhost:18080", "public host for swagger")
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
 	viper.BindPFlag("PublicHost", serverCmd.PersistentFlags().Lookup("public-host"))
+
+	serverCmd.PersistentFlags().Bool("dev", false, "dev mode")
 
 	viper.SetDefault("client_polling_interval_sec", 60)
 	viper.SetDefault("permitted_access_sec", 600)

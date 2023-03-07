@@ -5,7 +5,7 @@ test: tidy
 	go test -v -bench=. ./... -benchmem
 
 run: swag
-	go run . server --config misc/waitingroom/waitingroom.toml --log-level debug
+	go run . server --config misc/waitingroom/waitingroom.toml --log-level debug --dev
 
 .PHONY: build
 build:
@@ -16,7 +16,7 @@ ci: lint test
 lint: devdeps
 	@staticcheck ./...
 
-.PHONY: viron 
+.PHONY: viron
 viron:
 	docker build -t viron viron
 	docker run -p 9090:9090 --rm -it viron
