@@ -26,3 +26,10 @@ jobs:
         with:
           push: true
           tags: ghcr.io/pyama86/ngx_waitingroom:${{ github.sha }}
+      -
+        name: Build and push viron
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          context: viron
+          tags: ghcr.io/pyama86/viron:1-${{ github.sha }}
