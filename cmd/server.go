@@ -164,7 +164,7 @@ func runServer(config *waitingroom.Config) error {
 	api.QueuesEndpoints(v1, redisc, config, cache)
 	api.WhiteListEndpoints(v1, redisc)
 
-	docs.SwaggerInfo.Host = config.Listener
+	docs.SwaggerInfo.Host = config.PublicURL
 	middleware.DefaultCORSConfig.AllowHeaders = []string{
 		"X-Pagination-Limit",
 		"X-Pagination-Total-Pages",
@@ -208,6 +208,7 @@ func init() {
 	viper.BindPFlag("LogLevel", serverCmd.PersistentFlags().Lookup("log-level"))
 
 	serverCmd.PersistentFlags().String("listener", "localhost:18080", "listen host")
+	serverCmd.PersistentFlags().String("public_url", "localhost:18080", "public url for swagger")
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
 
 	viper.SetDefault("client_polling_interval_sec", 60)
