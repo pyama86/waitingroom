@@ -59,9 +59,10 @@ func (c *Cache) ZScanAndFetchIfExpired(ctx context.Context, key, target string) 
 	rv, _, err := c.redisClient.ZScan(ctx, key, 0, target, 1).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return nil, nil
+			rv = []string{}
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
 	c.cache.Set(cacheKey, rv, gocache.DefaultExpiration)
 	return rv, nil
