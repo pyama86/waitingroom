@@ -68,15 +68,6 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".waitingroom")
 	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-	viper.SetEnvPrefix("WR")
-	viper.SetConfigType("toml")
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	} else {
-		fmt.Printf("config file read error: %s", err)
-	}
 }
 
 func getEnv(key, fallback string) string {

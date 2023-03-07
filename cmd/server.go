@@ -70,7 +70,15 @@ var serverCmd = &cobra.Command{
 		config := &waitingroom.Config{}
 
 		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+		viper.SetEnvPrefix("WR")
 		viper.AutomaticEnv()
+		viper.SetConfigType("toml")
+		if err := viper.ReadInConfig(); err == nil {
+			fmt.Println("Using config file:", viper.ConfigFileUsed())
+		} else {
+			fmt.Printf("config file read error: %s", err)
+		}
+
 		if err := viper.Unmarshal(&config); err != nil {
 			logrus.Fatal(err)
 		}
@@ -220,5 +228,6 @@ func init() {
 	viper.SetDefault("queue_enable_sec", 300)
 	viper.SetDefault("permit_interval_sec", 60)
 	viper.SetDefault("permit_unit_number", 1000)
+	viper.SetDefault("public_url", "localhost:18080")
 	rootCmd.AddCommand(serverCmd)
 }
