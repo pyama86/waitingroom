@@ -44,6 +44,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
 
 var secureCookie = securecookie.New(
@@ -104,6 +105,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 			`"status":${status},"error":"${error},"latency":"${latency_human}""` + "\n",
 	}))
 
+	e.Use(otelecho.Middleware("waitingroom"))
 	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
