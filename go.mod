@@ -18,7 +18,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/swaggo/echo-swagger v1.4.0
 	github.com/swaggo/swag v1.16.1
-	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.41.0
+	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.41.1
 	gopkg.in/go-playground/validator.v9 v9.31.0
 )
 
@@ -55,8 +55,8 @@ require (
 	github.com/swaggo/files/v2 v2.0.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	go.opentelemetry.io/otel v1.15.0 // indirect
-	go.opentelemetry.io/otel/trace v1.15.0 // indirect
+	go.opentelemetry.io/otel v1.15.1 // indirect
+	go.opentelemetry.io/otel/trace v1.15.1 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
