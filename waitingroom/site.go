@@ -16,11 +16,12 @@ type Site struct {
 	redisC                       *redis.Client
 	cache                        *Cache
 	config                       *Config
-	permittedNumberKey           string
-	currentNumberKey             string
-	appendPermittedNumberLockKey string
+	permittedNumberKey           string // 何番目まで許可されているかの番号
+	currentNumberKey             string // 現在の発券番号
+	appendPermittedNumberLockKey string // 許可番号を更新する際のロックキー
 }
 
+// 制限中のドメインリスト
 const EnableDomainKey = "queue-domains"
 const WhiteListKey = "queue-whitelist"
 
@@ -117,6 +118,7 @@ func (s *Site) isEnabledQueue() (bool, error) {
 	return (num > 0), nil
 }
 
+// 制限中ドメインリストに、ロックを取りながらドメインを追加する
 func (s *Site) EnableQueue() error {
 	cacheKey := s.permittedNumberKey + "_enable_cache"
 	if !s.cache.Exists(cacheKey) {
