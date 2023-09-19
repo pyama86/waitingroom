@@ -71,7 +71,7 @@ var serverCmd = &cobra.Command{
 		config := &waitingroom.Config{}
 
 		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-		viper.SetEnvPrefix("WR")
+		viper.SetEnvPrefix("WAITINGROOM")
 		viper.AutomaticEnv()
 		viper.SetConfigType("toml")
 		if err := viper.ReadInConfig(); err == nil {
