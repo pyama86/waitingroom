@@ -12,4 +12,6 @@ type Config struct {
 	CacheTTLSec         int    `mapstructure:"cache_ttl_sec,omitempty"`          // ローカルメモリキャッシュTTL
 	NegativeCacheTTLSec int    `mapstructure:"negative_cache_ttl_sec,omitempty"` // ローカルメモリネガティブキャッシュTTL
 	PublicHost          string `mapstructure:"public_host,omitempty"`            // 公開URLのホスト
+	SlackApiToken       string `mapstructure:"slack_api_token,omitempty"`        // Slack Api Token
+	SlackChannel        string `mapstructure:"slack_channel,omitempty"`          // Slack Channel
 }

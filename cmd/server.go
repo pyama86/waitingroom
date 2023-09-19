@@ -182,6 +182,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 
 	if dev {
 		docs.SwaggerInfo.Schemes = []string{"http"}
+		fmt.Printf("%v", config)
 	} else {
 		docs.SwaggerInfo.Schemes = []string{"https"}
 	}
@@ -243,5 +244,7 @@ func init() {
 	viper.SetDefault("permit_interval_sec", 60)
 	viper.SetDefault("permit_unit_number", 1000)
 	viper.SetDefault("public_host", "localhost:18080")
+	viper.BindEnv("slack_api_token", "SLACK_API_TOKEN")
+	viper.BindEnv("slack_channel", "SLACK_CHANNEL")
 	rootCmd.AddCommand(serverCmd)
 }

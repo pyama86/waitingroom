@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
+	"github.com/nlopes/slack"
 )
 
 type Site struct {
@@ -63,9 +64,40 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	}
 
 	e.Logger.Infof("domain: %s value: %d ttl: %d, permit: %d", s.domain, an, ttl/time.Second, an)
+
+	err = s.notifySlackWithPermittedStatus(e, ttl, an)
+	if err != nil {
+		e.Logger.Errorf("failed to notify slack: %s", err)
+	}
 	return nil
 }
 
+func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, ttl time.Duration, permittedNumber int64) error {
+	if s.config.SlackApiToken != "" && s.config.SlackChannel != "" {
+		v, err := s.redisC.Get(s.ctx, s.currentNumberKey).Int64()
+		if err != nil {
+			return err
+		}
+
+		c := slack.New(s.config.SlackApiToken)
+		_, _, err = c.PostMessage(s.config.SlackChannel, slack.MsgOptionBlocks(
+			slack.NewSectionBlock(
+				&slack.TextBlockObject{Type: "mrkdwn", Text: "*WaitingRoom Additional access granted*"},
+				[]*slack.TextBlockObject{
+					{Type: "plain_text", Text: fmt.Sprintf("Domain: %s", s.domain)},
+					{Type: "plain_text", Text: fmt.Sprintf("CurrentClient: %d", v)},
+					{Type: "plain_text", Text: fmt.Sprintf("PermittedNumber: %d", permittedNumber)},
+					{Type: "plain_text", Text: fmt.Sprintf("TTL: %d", ttl/time.Second)},
+				},
+				nil,
+			),
+		))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 	// 古いサーバだとSetNXにTTLを渡せない
 	ok, err := s.redisC.SetNX(s.ctx, s.appendPermittedNumberLockKey, "1", 0).Result()
