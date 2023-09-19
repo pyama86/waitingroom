@@ -10,5 +10,6 @@ RUN go build -o /waitingroom
 
 FROM scratch
 COPY --from=builder /waitingroom /waitingroom
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 EXPOSE 18080
 CMD [ "/waitingroom", "server"]
