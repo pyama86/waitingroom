@@ -102,7 +102,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		},
 		Format: `{"time":"${time_rfc3339_nano}","remote_ip":"${remote_ip}",` +
 			`"host":"${host}","method":"${method}","uri":"${uri}",` +
-			`"status":${status},"error":"${error},"latency":"${latency_human}"}` + "\n",
+			`"status":${status},"error":"${error}","latency":"${latency_human}"}` + "\n",
 	}))
 
 	e.Use(otelecho.Middleware("waitingroom"))
