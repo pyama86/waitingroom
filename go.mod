@@ -5,7 +5,7 @@ go 1.19
 replace github.com/gorilla/securecookie v1.1.1 => github.com/pyama86/securecookie v0.0.0-20230106074229-77677d6c8f5e
 
 require (
-	github.com/go-playground/validator/v10 v10.15.4
+	github.com/go-playground/validator/v10 v10.15.5
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.3.1
 	github.com/gorilla/securecookie v1.1.1
