@@ -29,6 +29,7 @@ func TestAccessController_Do(t *testing.T) {
 					Score:  1,
 				})
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, "1", 3*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, "1", 3*time.Second)
 			},
 			want: 1001,
 		},
