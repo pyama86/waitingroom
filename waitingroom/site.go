@@ -2,6 +2,7 @@ package waitingroom
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -19,8 +20,11 @@ type Site struct {
 	config                       *Config
 	permittedNumberKey           string // 何番目まで許可されているかの番号
 	currentNumberKey             string // 現在の発券番号
+	lastNumberKey                string // 最後にチェックしたときの発券番号
 	appendPermittedNumberLockKey string // 許可番号を更新する際のロックキー
 }
+
+var ClientNotIncreseError = errors.New("client not increase")
 
 // 制限中のドメインリスト
 const EnableDomainKey = "queue-domains"
@@ -28,6 +32,7 @@ const WhiteListKey = "queue-whitelist"
 
 const SuffixPermittedNo = "_permitted_no"
 const SuffixCurrentNo = "_current_no"
+const SuffixLastNo = "_last_no"
 const SuffixPermittedNoLock = "_permitted_no_lock"
 
 func NewSite(c context.Context, domain string, config *Config, r *redis.Client, cache *Cache) *Site {
@@ -39,6 +44,7 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 		config:                       config,
 		permittedNumberKey:           domain + SuffixPermittedNo,
 		currentNumberKey:             domain + SuffixCurrentNo,
+		lastNumberKey:                domain + SuffixLastNo,
 		appendPermittedNumberLockKey: domain + SuffixPermittedNoLock,
 	}
 }
@@ -59,6 +65,21 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 		return err
 	}
 
+	ln, err := s.redisC.Get(s.ctx, s.lastNumberKey).Int64()
+	if err != nil {
+		if err != redis.Nil {
+			return err
+		}
+		ln = 0
+	}
+	// 前回チェック時より、クライアントが増えていない場合は、即時解除する
+	if ln == cn {
+		if err := s.Reset(); err != nil {
+			return err
+		}
+		return ClientNotIncreseError
+	}
+
 	an = an + s.config.PermitUnitNumber
 
 	// 現在のクライアント数が許可数より多いのであれば、起動時間を延長する
@@ -66,11 +87,20 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 		ttl = time.Duration(s.config.QueueEnableSec) * time.Second
 	}
 
-	err = s.redisC.SetEX(s.ctx,
+	pipe := s.redisC.Pipeline()
+	pipe.SetEX(s.ctx,
 		s.permittedNumberKey,
 		strconv.FormatInt(an, 10),
-		ttl).Err()
-	if err != nil {
+		ttl)
+
+	pipe.SetEX(s.ctx,
+		s.lastNumberKey,
+		strconv.FormatInt(cn, 10),
+		ttl,
+	)
+	_, err = pipe.Exec(s.ctx)
+
+	if err != nil && err != redis.Nil {
 		return fmt.Errorf("domain: %s value: %d ttl: %d, err: %s", s.domain, an, ttl/time.Second, err)
 	}
 
@@ -119,6 +149,10 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 		}
 
 		if err := s.appendPermitNumber(e); err != nil {
+			if errors.Is(err, ClientNotIncreseError) {
+				e.Logger.Infof("client not increase %v", s.domain)
+				return nil
+			}
 			return err
 		}
 	}
@@ -132,7 +166,7 @@ func (s *Site) flushPermittedNumberCache() {
 func (s *Site) Reset() error {
 	pipe := s.redisC.Pipeline()
 	pipe.ZRem(s.ctx, EnableDomainKey, s.domain)
-	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey)
+	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey, s.lastNumberKey)
 	_, err := pipe.Exec(s.ctx)
 	if err != nil && err != redis.Nil {
 		return err
@@ -151,6 +185,9 @@ func (s *Site) isInWhitelist() (bool, error) {
 func (s *Site) isEnabledQueue() (bool, error) {
 	num, err := s.redisC.Exists(s.ctx, s.permittedNumberKey).Uint64()
 	if err != nil {
+		if err == redis.Nil {
+			return false, nil
+		}
 		return false, err
 	}
 	return (num > 0), nil
