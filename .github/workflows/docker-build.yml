@@ -40,4 +40,4 @@ jobs:
         with:
           push: true
           context: ./viron
-          tags: docker.io/pyama/viron:1
+          tags: ghcr.io/pyama86/viron:${{ github.sha }}
