@@ -2,6 +2,7 @@ package waitingroom
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"reflect"
 	"testing"
@@ -43,6 +44,7 @@ func TestNewSite(t *testing.T) {
 				permittedNumberKey:           "example.com_permitted_no",
 				currentNumberKey:             "example.com_current_no",
 				appendPermittedNumberLockKey: "example.com_permitted_no_lock",
+				lastNumberKey:                "example.com_last_no",
 			},
 		},
 	}
@@ -69,12 +71,13 @@ func TestSite_appendPermitNumber(t *testing.T) {
 		config             *Config
 		permittedNumberKey string
 		currentNumberKey   string
+		lastNumberKey      string
 	}
 	tests := []struct {
 		name       string
 		fields     fields
-		beforeHook func(string, string, *redis.Client)
-		wantErr    bool
+		beforeHook func(string, string, string, *redis.Client)
+		wantErr    error
 		want       int
 		wantTTL    time.Duration
 	}{
@@ -88,12 +91,13 @@ func TestSite_appendPermitNumber(t *testing.T) {
 
 				permittedNumberKey: testRandomString(10),
 				currentNumberKey:   testRandomString(10),
+				lastNumberKey:      testRandomString(10),
 			},
-			beforeHook: func(permitKey, currentKey string, redisClient *redis.Client) {
+			beforeHook: func(permitKey, currentKey, lastKey string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), permitKey, 10, 5*time.Second)
 				redisClient.SetEX(context.Background(), currentKey, 10, 5*time.Second)
 			},
-			wantErr: false,
+			wantErr: nil,
 			want:    20,
 			wantTTL: 5 * time.Second,
 		},
@@ -103,8 +107,9 @@ func TestSite_appendPermitNumber(t *testing.T) {
 				config:             &Config{},
 				permittedNumberKey: testRandomString(10),
 				currentNumberKey:   testRandomString(10),
+				lastNumberKey:      testRandomString(10),
 			},
-			wantErr: true,
+			wantErr: redis.Nil,
 			wantTTL: 10 * time.Second,
 		},
 		{
@@ -117,14 +122,35 @@ func TestSite_appendPermitNumber(t *testing.T) {
 
 				permittedNumberKey: testRandomString(10),
 				currentNumberKey:   testRandomString(10),
+				lastNumberKey:      testRandomString(10),
 			},
-			beforeHook: func(permitKey, currentKey string, redisClient *redis.Client) {
+			beforeHook: func(permitKey, currentKey, lastKey string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), permitKey, 10, 10*time.Second)
 				redisClient.SetEX(context.Background(), currentKey, 21, 10*time.Second)
 			},
-			wantErr: false,
+			wantErr: nil,
 			want:    20,
 			wantTTL: 30 * time.Second,
+		},
+
+		{
+			name: "reset if not increase",
+			fields: fields{
+				config: &Config{
+					QueueEnableSec:   10,
+					PermitUnitNumber: 10,
+				},
+
+				permittedNumberKey: testRandomString(10),
+				currentNumberKey:   testRandomString(10),
+				lastNumberKey:      testRandomString(10),
+			},
+			beforeHook: func(permitKey, currentKey, lastKey string, redisClient *redis.Client) {
+				redisClient.SetEX(context.Background(), permitKey, 10, 5*time.Second)
+				redisClient.SetEX(context.Background(), currentKey, 10, 5*time.Second)
+				redisClient.SetEX(context.Background(), lastKey, 10, 5*time.Second)
+			},
+			wantErr: ErrClientNotIncrese,
 		},
 	}
 	for _, tt := range tests {
@@ -139,24 +165,42 @@ func TestSite_appendPermitNumber(t *testing.T) {
 				config:             tt.fields.config,
 				permittedNumberKey: tt.fields.permittedNumberKey,
 				currentNumberKey:   tt.fields.currentNumberKey,
+				lastNumberKey:      tt.fields.lastNumberKey,
 			}
 
 			if tt.beforeHook != nil {
-				tt.beforeHook(tt.fields.permittedNumberKey, tt.fields.currentNumberKey, redisClient)
+				tt.beforeHook(tt.fields.permittedNumberKey, tt.fields.currentNumberKey, tt.fields.lastNumberKey, redisClient)
 			}
 
 			e := echo.New()
-			if err := s.appendPermitNumber(e); (err != nil) != tt.wantErr {
+
+			err := s.appendPermitNumber(e)
+
+			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Site.appendPermitNumber() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr {
+			if tt.wantErr == nil {
 				got, err := redisClient.Get(context.Background(), tt.fields.permittedNumberKey).Int()
 				if err != nil {
 					panic(err)
 				}
 				if got != tt.want {
 					t.Errorf("Site.appendPermitNumber() got = %v, want %v", got, tt.want)
+				}
+
+				cn, err := redisClient.Get(context.Background(), tt.fields.currentNumberKey).Int()
+				if err != nil {
+					panic(err)
+				}
+
+				ln, err := redisClient.Get(context.Background(), tt.fields.lastNumberKey).Int()
+				if err != nil {
+					panic(err)
+				}
+
+				if cn != ln {
+					t.Errorf("Site.appendPermitNumber() currentNumber = %v, lastNumber %v", cn, ln)
 				}
 
 				ttl, err := redisClient.TTL(context.Background(), tt.fields.permittedNumberKey).Result()
@@ -269,6 +313,7 @@ func TestSite_Reset(t *testing.T) {
 		permittedNumberKey           string
 		appendPermittedNumberLockKey string
 		currentNumberKey             string
+		lastNumberKey                string
 	}
 	tests := []struct {
 		name       string
@@ -282,11 +327,13 @@ func TestSite_Reset(t *testing.T) {
 				config:                       &Config{},
 				permittedNumberKey:           testRandomString(10),
 				currentNumberKey:             testRandomString(10),
+				lastNumberKey:                testRandomString(10),
 				appendPermittedNumberLockKey: testRandomString(10),
 			},
 			beforeHook: func(s *Site, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), s.permittedNumberKey, 10, 10*time.Second)
 				redisClient.SetEX(context.Background(), s.currentNumberKey, 10, 10*time.Second)
+				redisClient.SetEX(context.Background(), s.lastNumberKey, 10, 10*time.Second)
 				redisClient.SetEX(context.Background(), s.appendPermittedNumberLockKey, 10, 10*time.Second)
 			},
 			wantErr: false,
@@ -318,6 +365,7 @@ func TestSite_Reset(t *testing.T) {
 				tt.fields.currentNumberKey,
 				tt.fields.permittedNumberKey,
 				tt.fields.appendPermittedNumberLockKey,
+				tt.fields.lastNumberKey,
 			} {
 				num, err := redisClient.Exists(context.Background(), k).Uint64()
 				if err != nil {
