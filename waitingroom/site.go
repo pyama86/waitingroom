@@ -24,7 +24,7 @@ type Site struct {
 	appendPermittedNumberLockKey string // 許可番号を更新する際のロックキー
 }
 
-var ClientNotIncreseError = errors.New("client not increase")
+var ErrClientNotIncrese = errors.New("client not increase")
 
 // 制限中のドメインリスト
 const EnableDomainKey = "queue-domains"
@@ -77,7 +77,7 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 		if err := s.Reset(); err != nil {
 			return err
 		}
-		return ClientNotIncreseError
+		return ErrClientNotIncrese
 	}
 
 	an = an + s.config.PermitUnitNumber
@@ -149,7 +149,7 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 		}
 
 		if err := s.appendPermitNumber(e); err != nil {
-			if errors.Is(err, ClientNotIncreseError) {
+			if errors.Is(err, ErrClientNotIncrese) {
 				e.Logger.Infof("client not increase %v", s.domain)
 				return nil
 			}

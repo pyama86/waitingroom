@@ -150,7 +150,7 @@ func TestSite_appendPermitNumber(t *testing.T) {
 				redisClient.SetEX(context.Background(), currentKey, 10, 5*time.Second)
 				redisClient.SetEX(context.Background(), lastKey, 10, 5*time.Second)
 			},
-			wantErr: ClientNotIncreseError,
+			wantErr: ErrClientNotIncrese,
 		},
 	}
 	for _, tt := range tests {
