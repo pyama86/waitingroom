@@ -73,7 +73,7 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 		ln = 0
 	}
 	// 前回チェック時より、クライアントが増えていない場合は、即時解除する
-	if ln == cn {
+	if ln == cn && cn <= an {
 		if err := s.Reset(); err != nil {
 			return err
 		}
