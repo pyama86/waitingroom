@@ -106,9 +106,11 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 
 	e.Logger.Infof("domain: %s value: %d ttl: %d, permit: %d", s.domain, an, ttl/time.Second, an)
 
-	err = s.notifySlackWithPermittedStatus(e, ttl, an, cn)
-	if err != nil {
-		e.Logger.Errorf("failed to notify slack: %s", err)
+	if cn > 5 {
+		err = s.notifySlackWithPermittedStatus(e, ttl, an, cn)
+		if err != nil {
+			e.Logger.Errorf("failed to notify slack: %s", err)
+		}
 	}
 	return nil
 }
