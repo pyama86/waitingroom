@@ -74,6 +74,11 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	}
 	// 前回チェック時より、クライアントが増えていない場合は、即時解除する
 	if ln == cn && cn <= an {
+		err = s.notifySlackWithPermittedStatus(e, "Reset WaitingRoom", ttl, an, cn)
+		if err != nil {
+			e.Logger.Errorf("failed to notify slack: %s", err)
+		}
+
 		if err := s.Reset(); err != nil {
 			return err
 		}
@@ -107,7 +112,7 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	e.Logger.Infof("domain: %s value: %d ttl: %d, permit: %d", s.domain, an, ttl/time.Second, an)
 
 	if cn > 5 {
-		err = s.notifySlackWithPermittedStatus(e, ttl, an, cn)
+		err = s.notifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
 		if err != nil {
 			e.Logger.Errorf("failed to notify slack: %s", err)
 		}
@@ -115,12 +120,12 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	return nil
 }
 
-func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, ttl time.Duration, permittedNumber, currentNumber int64) error {
+func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl time.Duration, permittedNumber, currentNumber int64) error {
 	if s.config.SlackApiToken != "" && s.config.SlackChannel != "" {
 		c := slack.New(s.config.SlackApiToken)
 		_, _, err := c.PostMessage(s.config.SlackChannel, slack.MsgOptionBlocks(
 			slack.NewSectionBlock(
-				&slack.TextBlockObject{Type: "mrkdwn", Text: "*WaitingRoom Additional access granted*"},
+				&slack.TextBlockObject{Type: "mrkdwn", Text: fmt.Sprintf("*%s*", message)},
 				[]*slack.TextBlockObject{
 					{Type: "plain_text", Text: fmt.Sprintf("Domain: %s", s.domain)},
 					{Type: "plain_text", Text: fmt.Sprintf("CurrentClient: %d", currentNumber)},
