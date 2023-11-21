@@ -74,6 +74,7 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	}
 	// 前回チェック時より、クライアントが増えていない場合は、即時解除する
 	if ln == cn && cn <= an {
+		e.Logger.Infof("reset waitingroom domain: %s current: %d ttl: %d, permit: %d lastNumber:", s.domain, cn, ttl/time.Second, an, ln)
 		err = s.notifySlackWithPermittedStatus(e, "Reset WaitingRoom", ttl, an, cn)
 		if err != nil {
 			e.Logger.Errorf("failed to notify slack: %s", err)
@@ -106,10 +107,10 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	_, err = pipe.Exec(s.ctx)
 
 	if err != nil && err != redis.Nil {
-		return fmt.Errorf("domain: %s value: %d ttl: %d, err: %s", s.domain, an, ttl/time.Second, err)
+		return fmt.Errorf("domain: %s current: %d ttl: %d permit: %d, err: %s", s.domain, cn, an, ttl/time.Second, err)
 	}
 
-	e.Logger.Infof("domain: %s value: %d ttl: %d, permit: %d", s.domain, an, ttl/time.Second, an)
+	e.Logger.Infof("append permit number domain: %s current: %d ttl: %d, permit: %d", s.domain, cn, ttl/time.Second, an)
 
 	if cn > 5 {
 		err = s.notifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
