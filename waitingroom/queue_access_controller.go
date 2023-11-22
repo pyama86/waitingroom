@@ -50,5 +50,9 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		}
 
 	}
+	if len(members) > 0 {
+		return site.extendTTLEnableDomains()
+		
+	}
 	return nil
 }
