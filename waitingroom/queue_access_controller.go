@@ -2,6 +2,7 @@ package waitingroom
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
@@ -50,9 +51,10 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		}
 
 	}
+
 	if len(members) > 0 {
-		return site.extendTTLEnableDomains()
-		
+		return a.redisClient.Expire(ctx, EnableDomainKey, time.Duration(a.config.QueueEnableSec*2)*time.Second).Err()
 	}
+
 	return nil
 }

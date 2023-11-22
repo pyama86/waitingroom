@@ -171,10 +171,6 @@ func (s *Site) flushPermittedNumberCache() {
 	s.cache.Delete(s.permittedNumberKey)
 }
 
-func (s *Site) extendTTLEnableDomains() error {
-	return s.redisC.Expire(s.ctx, EnableDomainKey, time.Duration(s.config.QueueEnableSec*2)*time.Second).Error()
-}
-
 func (s *Site) Reset() error {
 	pipe := s.redisC.Pipeline()
 	pipe.ZRem(s.ctx, EnableDomainKey, s.domain)
