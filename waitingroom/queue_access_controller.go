@@ -39,6 +39,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			return err
 		}
 		if !ok {
+			e.Logger.Infof("domain %v is not enabled", m)
 			if err := site.Reset(); err != nil {
 				return err
 			}
