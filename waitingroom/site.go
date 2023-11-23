@@ -112,16 +112,21 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 
 	e.Logger.Infof("append permit number domain: %s current: %d ttl: %d, permit: %d", s.domain, cn, ttl/time.Second, an)
 
-	if cn > 5 {
-		err = s.notifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
-		if err != nil {
-			e.Logger.Errorf("failed to notify slack: %s", err)
-		}
+	err = s.notifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
+	if err != nil {
+		e.Logger.Errorf("failed to notify slack: %s", err)
 	}
+
 	return nil
 }
 
 func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl time.Duration, permittedNumber, currentNumber int64) error {
+
+	if currentNumber < 5 {
+		e.Logger.Infof("skip notify slack domain: %s current: %d ttl: %d, permit: %d", s.domain, currentNumber, ttl/time.Second, permittedNumber)
+		return nil
+	}
+
 	if s.config.SlackApiToken != "" && s.config.SlackChannel != "" {
 		c := slack.New(s.config.SlackApiToken)
 		_, _, err := c.PostMessage(s.config.SlackChannel, slack.MsgOptionBlocks(
