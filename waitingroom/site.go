@@ -74,7 +74,7 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	}
 	// 前回チェック時より、クライアントが増えていない場合は、即時解除する
 	if ln == cn && cn <= an {
-		e.Logger.Infof("reset waitingroom domain: %s current: %d ttl: %d, permit: %d lastNumber:", s.domain, cn, ttl/time.Second, an, ln)
+		e.Logger.Infof("reset waitingroom domain: %s current: %d ttl: %d, permit: %d lastNumber:%d", s.domain, cn, ttl/time.Second, an, ln)
 		err = s.notifySlackWithPermittedStatus(e, "Reset WaitingRoom", ttl, an, cn)
 		if err != nil {
 			e.Logger.Errorf("failed to notify slack: %s", err)
@@ -97,6 +97,10 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	pipe.SetEX(s.ctx,
 		s.permittedNumberKey,
 		strconv.FormatInt(an, 10),
+		ttl)
+
+	pipe.Expire(s.ctx,
+		s.currentNumberKey,
 		ttl)
 
 	pipe.SetEX(s.ctx,
@@ -158,7 +162,7 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 		e.Logger.Infof("got lock %v", s.domain)
 		err = s.redisC.Expire(s.ctx, s.appendPermittedNumberLockKey, time.Duration(s.config.PermitIntervalSec)*time.Second).Err()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to set expire %s:%v", s.domain, err)
 		}
 
 		if err := s.appendPermitNumber(e); err != nil {
@@ -166,7 +170,7 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 				e.Logger.Infof("client not increase %v", s.domain)
 				return nil
 			}
-			return err
+			return fmt.Errorf("failed to append permit number %s:%v", s.domain, err)
 		}
 	}
 	return nil
