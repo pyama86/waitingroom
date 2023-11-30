@@ -2,7 +2,9 @@ package waitingroom
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -20,13 +22,14 @@ func TestQueueConfirmation_Do(t *testing.T) {
 		config      *Config
 	}
 	tests := []struct {
-		name       string
-		fields     fields
-		client     Client
-		wantErr    bool
-		wantStatus int
-		beforeHook func(string, *redis.Client)
-		expect     func(*testing.T, *Client, *redis.Client)
+		name              string
+		fields            fields
+		client            Client
+		wantErr           bool
+		wantStatus        int
+		beforeHook        func(string, *redis.Client)
+		expect            func(*testing.T, *Client, *redis.Client)
+		expectQueueResult QueueResult
 	}{
 		{
 			name: "now queue and delay take number",
@@ -53,6 +56,12 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				if c.TakeSerialNumberTime != time.Now().Unix()+10 {
 					t.Errorf("TestQueueConfirmation_Do miss match c.TakeSerialNumberTime")
 				}
+			},
+			expectQueueResult: QueueResult{
+				Enabled:         true,
+				PermittedClient: false,
+				SerialNo:        0,
+				PermittedNo:     0,
 			},
 		},
 		{
@@ -84,6 +93,12 @@ func TestQueueConfirmation_Do(t *testing.T) {
 					t.Errorf("TestQueueConfirmation_Do miss match c.SerialNumber")
 				}
 			},
+			expectQueueResult: QueueResult{
+				Enabled:         true,
+				PermittedClient: false,
+				SerialNo:        2,
+				PermittedNo:     1,
+			},
 		},
 		{
 			name: "queue isn't start",
@@ -99,6 +114,12 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			client:     Client{},
 			wantErr:    false,
 			wantStatus: http.StatusOK,
+			expectQueueResult: QueueResult{
+				Enabled:         false,
+				PermittedClient: false,
+				SerialNo:        0,
+				PermittedNo:     0,
+			},
 		},
 		{
 			name: "permit access",
@@ -121,6 +142,12 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
+			},
+			expectQueueResult: QueueResult{
+				Enabled:         true,
+				PermittedClient: true,
+				SerialNo:        0,
+				PermittedNo:     0,
 			},
 		},
 		{
@@ -145,6 +172,12 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 				redisClient.ZAdd(context.Background(), WhiteListKey, &redis.Z{Member: key, Score: 1})
 			},
+			expectQueueResult: QueueResult{
+				Enabled:         false,
+				PermittedClient: false,
+				SerialNo:        0,
+				PermittedNo:     0,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -161,7 +194,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			c.SetPath("/queues/:domain")
 			c.SetParamNames("domain")
 			c.SetParamValues(domain)
-
+			defer rec.Result().Body.Close()
 			encoded, err := secureCookie.Encode(clientCookieKey, tt.client)
 			if err != nil {
 				panic(err)
@@ -196,6 +229,16 @@ func TestQueueConfirmation_Do(t *testing.T) {
 					&got)
 
 				tt.expect(t, &got, redisClient)
+			}
+
+			result := QueueResult{}
+			err = json.Unmarshal(rec.Body.Bytes(), &result)
+			if err != nil {
+				t.Errorf("QueueConfirmation.Do() error = %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expectQueueResult) {
+				t.Errorf("QueueConfirmation.Do() result = %v, expect %v", result, tt.expectQueueResult)
 			}
 		})
 	}

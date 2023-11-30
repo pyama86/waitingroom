@@ -34,7 +34,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		e.Logger.Infof("try permit access %v", m)
 		site := NewSite(ctx, m, a.config, a.redisClient, a.cache)
 
-		ok, err := site.isEnabledQueue()
+		ok, err := site.isEnabledQueue(false)
 		if err != nil {
 			return err
 		}

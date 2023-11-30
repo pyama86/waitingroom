@@ -1,7 +1,6 @@
 package waitingroom
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/go-redis/redis/v8"
@@ -32,6 +31,13 @@ func NewQueueConfirmation(
 
 const paramDomainKey = "domain"
 
+type QueueResult struct {
+	Enabled         bool  `json:"enabled"`
+	PermittedClient bool  `json:"permitted_client"`
+	SerialNo        int64 `json:"serial_no"`
+	PermittedNo     int64 `json:"permitted_no"`
+}
+
 func (p *QueueConfirmation) Do(c echo.Context) error {
 	client, err := NewClientByContext(c, p.sc)
 	if err != nil {
@@ -45,16 +51,24 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 
 	if ok {
-		return c.JSON(http.StatusOK, "site is in whitelist")
+		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
 	}
 	if c.Param("enable") != "" {
 		if err := site.EnableQueue(); err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't enable queue")
 		}
 	}
+	ok, err = site.isEnabledQueue(true)
+	if err != nil {
+		return NewError(http.StatusInternalServerError, err, " can't get enable status")
+	}
+
+	if !ok {
+		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+	}
 
 	if site.isPermittedClient(client) {
-		return c.JSON(http.StatusOK, "permitted client")
+		return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
 	}
 
 	clientSerialNumber, err := client.fillSerialNumber(site)
@@ -68,7 +82,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 			return NewError(http.StatusInternalServerError, err, " can't jude permit access")
 		}
 		if ok {
-			return c.JSON(http.StatusOK, "permitted connection")
+			return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
 		}
 	}
 
@@ -85,6 +99,9 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		cp = lcp
 	}
 
-	return c.String(http.StatusTooManyRequests, fmt.Sprintf(`{"serial_no": %d, "permitted_no": %d }`,
-		client.SerialNumber, cp))
+	return c.JSON(http.StatusTooManyRequests, QueueResult{
+		Enabled:         true,
+		PermittedClient: false,
+		SerialNo:        client.SerialNumber,
+		PermittedNo:     cp})
 }

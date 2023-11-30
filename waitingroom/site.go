@@ -199,15 +199,36 @@ func (s *Site) isInWhitelist() (bool, error) {
 	return false, err
 }
 
-func (s *Site) isEnabledQueue() (bool, error) {
-	num, err := s.redisC.Exists(s.ctx, s.permittedNumberKey).Uint64()
-	if err != nil {
-		if err == redis.Nil {
-			return false, nil
+func (s *Site) isEnabledQueue(cache bool) (bool, error) {
+	if cache {
+		cacheKey := s.permittedNumberKey + "_enable_queue_cache"
+		// 前回チェック時に有効だった
+		if s.cache.Exists(cacheKey) {
+			return true, nil
 		}
-		return false, err
+
+		if _, err := s.cache.GetAndFetchIfExpired(
+			s.ctx,
+			s.permittedNumberKey); err != nil {
+			if err == redis.Nil {
+				// ドメインでqueueが有効ではないので制限されていない
+				return false, nil
+			}
+			return false, err
+		}
+		s.cache.Set(cacheKey, "1", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
+		return true, nil
+
+	} else {
+		num, err := s.redisC.Exists(s.ctx, s.permittedNumberKey).Uint64()
+		if err != nil {
+			if err == redis.Nil {
+				return false, nil
+			}
+			return false, err
+		}
+		return (num > 0), nil
 	}
-	return (num > 0), nil
 }
 
 // 制限中ドメインリストに、ロックを取りながらドメインを追加する
@@ -235,19 +256,6 @@ func (s *Site) EnableQueue() error {
 }
 
 func (s *Site) isPermittedClient(client *Client) bool {
-	cacheKey := s.permittedNumberKey + "_disable_queue_cache"
-	if s.cache.Exists(cacheKey) {
-		return true
-	}
-
-	// ドメインでqueueが有効ではないので制限されていない
-	if _, err := s.cache.GetAndFetchIfExpired(
-		s.ctx,
-		s.permittedNumberKey); err == redis.Nil {
-		s.cache.Set(cacheKey, "1", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
-		return true
-	}
-
 	// 許可済みのコネクション
 	if client.ID != "" && client.SerialNumber != 0 {
 		_, err := s.cache.GetAndFetchIfExpired(s.ctx, client.ID)

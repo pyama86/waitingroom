@@ -433,13 +433,15 @@ func TestSite_isEnabledQueue(t *testing.T) {
 				tt.beforeHook(s, redisClient)
 			}
 
-			got, err := s.isEnabledQueue()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Site.isEnabledQueue() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Site.isEnabledQueue() = %v, want %v", got, tt.want)
+			for _, cache := range []bool{true, false} {
+				got, err := s.isEnabledQueue(cache)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Site.isEnabledQueue() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				if got != tt.want {
+					t.Errorf("Site.isEnabledQueue() = %v, want %v", got, tt.want)
+				}
 			}
 		})
 	}
@@ -584,34 +586,6 @@ func TestSite_isPermittedClient(t *testing.T) {
 				redisClient.SetEX(context.Background(), s.permittedNumberKey, 10, 10*time.Second)
 			},
 			want: false,
-		},
-		{
-			name: "not yet sterted queue",
-			fields: fields{
-				config:             &Config{},
-				permittedNumberKey: testRandomString(10),
-			},
-			client: &Client{
-				ID:           testRandomString(10),
-				SerialNumber: 100,
-			},
-			want: true,
-		},
-		{
-			name: "not yet sterted with cache",
-			fields: fields{
-				config:             &Config{},
-				permittedNumberKey: testRandomString(10),
-			},
-			client: &Client{
-				ID:           testRandomString(10),
-				SerialNumber: 100,
-			},
-			beforeHook: func(c *Client, s *Site, redisClient *redis.Client) {
-				s.cache.Set(s.permittedNumberKey+"_disable_queue_cache", "1", 10*time.Second)
-				redisClient.SetEX(context.Background(), s.permittedNumberKey, 10, 10*time.Second)
-			},
-			want: true,
 		},
 	}
 	for _, tt := range tests {
