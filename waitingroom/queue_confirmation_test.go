@@ -75,7 +75,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				},
 			},
 			client: Client{
-				ID:                   "dummy",
+				ID:                   testRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
@@ -93,7 +93,6 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				}
 			},
 			expectQueueResult: QueueResult{
-				ID:              "dummy",
 				Enabled:         true,
 				PermittedClient: false,
 				SerialNo:        2,
@@ -134,7 +133,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			},
 			client: Client{
 				SerialNumber:         1,
-				ID:                   "dummy",
+				ID:                   testRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
@@ -144,7 +143,6 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
-				ID:              "dummy",
 				Enabled:         true,
 				PermittedClient: true,
 				SerialNo:        0,
@@ -163,7 +161,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				},
 			},
 			client: Client{
-				ID:                   "dummy",
+				ID:                   testRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
@@ -175,7 +173,6 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				redisClient.Expire(context.Background(), WhiteListKey, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
-				ID:              "dummy",
 				Enabled:         false,
 				PermittedClient: false,
 				SerialNo:        0,
