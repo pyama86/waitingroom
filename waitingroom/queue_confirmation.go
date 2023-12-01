@@ -78,10 +78,6 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		return NewError(http.StatusInternalServerError, err, " can't get serial no")
 	}
 
-	if err := client.saveToCookie(c, p.config); err != nil {
-		return NewError(http.StatusInternalServerError, err, "can't save client info")
-	}
-
 	if clientSerialNumber != 0 {
 		ok, err := site.isClientPermit(client)
 		if err != nil {
@@ -90,6 +86,10 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		if ok {
 			return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
 		}
+	}
+
+	if err := client.saveToCookie(c, p.config); err != nil {
+		return NewError(http.StatusInternalServerError, err, "can't save client info")
 	}
 
 	cp := int64(0)
