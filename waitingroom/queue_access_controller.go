@@ -45,7 +45,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			}
 			continue
 		}
-		site.flushPermittedNumberCache()
+		site.flushCache()
 
 		if err := site.appendPermitNumberIfGetLock(e); err != nil {
 			return err

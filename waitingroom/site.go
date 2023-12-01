@@ -182,8 +182,10 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 	return nil
 }
 
-func (s *Site) flushPermittedNumberCache() {
+func (s *Site) flushCache() {
 	s.cache.Delete(s.permittedNumberKey)
+	s.cache.Delete(s.cacheEnabledQueueKey)
+	s.cache.Delete(s.cacheEnableKey)
 }
 
 func (s *Site) Reset() error {
