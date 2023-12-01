@@ -72,9 +72,10 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	cn, err := s.redisC.Get(s.ctx, s.currentNumberKey).Int64()
 	if err != nil {
 		if err == redis.Nil {
-			return fmt.Errorf("append permit number get current number failed: %s", err)
+			cn = 0
+		} else {
+			return err
 		}
-		return err
 	}
 
 	ln, err := s.redisC.Get(s.ctx, s.lastNumberKey).Int64()
