@@ -53,6 +53,11 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	if ok {
 		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
 	}
+
+	if site.isPermittedClient(client) {
+		return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
+	}
+
 	if c.Param("enable") != "" {
 		if err := site.EnableQueue(); err != nil {
 			return NewError(http.StatusInternalServerError, err, " can't enable queue")
@@ -65,10 +70,6 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 
 	if !ok {
 		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
-	}
-
-	if site.isPermittedClient(client) {
-		return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
 	}
 
 	clientSerialNumber, err := client.fillSerialNumber(site)
