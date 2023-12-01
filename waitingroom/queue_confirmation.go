@@ -63,6 +63,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 			return NewError(http.StatusInternalServerError, err, " can't enable queue")
 		}
 	}
+
 	ok, err = site.isEnabledQueue(true)
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err, " can't get enable status")

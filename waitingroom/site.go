@@ -58,6 +58,9 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	an, err := s.currentPermitedNumber(false)
 	if err != nil {
+		if err != redis.Nil {
+			return fmt.Errorf("append permit number get current permitted failed: %s", err)
+		}
 		return err
 	}
 
@@ -68,6 +71,9 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 
 	cn, err := s.redisC.Get(s.ctx, s.currentNumberKey).Int64()
 	if err != nil {
+		if err == redis.Nil {
+			return fmt.Errorf("append permit number get current number failed: %s", err)
+		}
 		return err
 	}
 

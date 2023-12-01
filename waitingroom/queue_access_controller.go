@@ -33,6 +33,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 	for _, m := range members {
 		e.Logger.Infof("try permit access %v", m)
 		site := NewSite(ctx, m, a.config, a.redisClient, a.cache)
+		site.flushCache()
 
 		ok, err := site.isEnabledQueue(false)
 		if err != nil {
@@ -45,7 +46,6 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			}
 			continue
 		}
-		site.flushCache()
 
 		if err := site.appendPermitNumberIfGetLock(e); err != nil {
 			return err
