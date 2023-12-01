@@ -32,6 +32,7 @@ func NewQueueConfirmation(
 const paramDomainKey = "domain"
 
 type QueueResult struct {
+	ID              string
 	Enabled         bool  `json:"enabled"`
 	PermittedClient bool  `json:"permitted_client"`
 	SerialNo        int64 `json:"serial_no"`
@@ -51,11 +52,11 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 
 	if ok {
-		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
 	}
 
 	if site.isPermittedClient(client) {
-		return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
+		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 	}
 
 	if c.Param("enable") != "" {
@@ -70,7 +71,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 
 	if !ok {
-		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
 	}
 
 	clientSerialNumber, err := client.fillSerialNumber(site)
@@ -88,7 +89,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 			return NewError(http.StatusInternalServerError, err, " can't jude permit access")
 		}
 		if ok {
-			return c.JSON(http.StatusOK, QueueResult{Enabled: true, PermittedClient: true})
+			return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 		}
 	}
 
@@ -102,6 +103,7 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusTooManyRequests, QueueResult{
+		ID:              client.ID,
 		Enabled:         true,
 		PermittedClient: false,
 		SerialNo:        client.SerialNumber,
