@@ -189,8 +189,7 @@ func (s *Site) flushCache() {
 }
 
 func (s *Site) Reset() error {
-	s.cache.Delete(s.cacheEnabledQueueKey)
-	s.cache.Delete(s.cacheEnableKey)
+	defer s.flushCache()
 	pipe := s.redisC.Pipeline()
 	pipe.ZRem(s.ctx, EnableDomainKey, s.domain)
 	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey, s.lastNumberKey)
