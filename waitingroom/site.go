@@ -275,7 +275,7 @@ func (s *Site) EnableQueue() error {
 
 func (s *Site) isPermittedClient(client *Client) bool {
 	// 許可済みのコネクション
-	if client.ID != "" && client.SerialNumber != 0 {
+	if client.ID != "" {
 		_, err := s.cache.GetAndFetchIfExpired(s.ctx, client.ID)
 		if err == nil {
 			return true
