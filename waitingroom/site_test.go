@@ -45,6 +45,8 @@ func TestNewSite(t *testing.T) {
 				currentNumberKey:             "example.com_current_no",
 				appendPermittedNumberLockKey: "example.com_permitted_no_lock",
 				lastNumberKey:                "example.com_last_no",
+				cacheEnabledQueueKey:         "example.com_enabled_queue_cache",
+				cacheEnableKey:               "example.com_enable_cache",
 			},
 		},
 	}
@@ -483,7 +485,7 @@ func TestSite_EnableQueue(t *testing.T) {
 				permittedNumberKey: testRandomString(10),
 			},
 			beforeHook: func(s *Site, redisClient *redis.Client) {
-				cacheKey := s.permittedNumberKey + "_enable_cache"
+				cacheKey := s.domain + "_enable_cache"
 				s.cache.Set(cacheKey, "1", time.Second*10)
 				redisClient.SetNX(s.ctx, s.permittedNumberKey, "10", 0)
 				redisClient.Expire(s.ctx, s.permittedNumberKey, time.Duration(10)*time.Second)
@@ -507,6 +509,7 @@ func TestSite_EnableQueue(t *testing.T) {
 				cache:              cache,
 				config:             tt.fields.config,
 				permittedNumberKey: tt.fields.permittedNumberKey,
+				cacheEnableKey:     tt.fields.domain + "_enable_cache",
 			}
 
 			if tt.beforeHook != nil {
@@ -536,7 +539,7 @@ func TestSite_EnableQueue(t *testing.T) {
 			if len(val) == 0 {
 				t.Errorf("%v is not enabled", tt.fields.domain)
 			}
-			if !s.cache.Exists(s.permittedNumberKey + "_enable_cache") {
+			if !s.cache.Exists(s.domain + "_enable_cache") {
 				t.Errorf("%v has not cache", tt.fields.domain)
 			}
 		})

@@ -29,6 +29,14 @@ func (c *Cache) Set(key, value string, ttl time.Duration) {
 	c.cache.Set(key, value, ttl)
 }
 
+func (c *Cache) Get(key string) (string, bool) {
+	v, ok := c.cache.Get(key)
+	if !ok {
+		return "", false
+	}
+	return v.(string), true
+}
+
 func (c *Cache) Exists(key string) bool {
 	_, ok := c.cache.Get(key)
 	return ok

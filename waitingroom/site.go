@@ -22,6 +22,8 @@ type Site struct {
 	currentNumberKey             string // 現在の発券番号
 	lastNumberKey                string // 最後にチェックしたときの発券番号
 	appendPermittedNumberLockKey string // 許可番号を更新する際のロックキー
+	cacheEnabledQueueKey         string // 有効になっているかどうかのキャッシュ
+	cacheEnableKey               string // 最後に有効にしてからの処理遅延のキャッシュ
 }
 
 var ErrClientNotIncrese = errors.New("client not increase")
@@ -34,6 +36,8 @@ const SuffixPermittedNo = "_permitted_no"
 const SuffixCurrentNo = "_current_no"
 const SuffixLastNo = "_last_no"
 const SuffixPermittedNoLock = "_permitted_no_lock"
+const SuffixCacheEnabledQueue = "_enabled_queue_cache"
+const SuffixCacheEnable = "_enable_cache"
 
 func NewSite(c context.Context, domain string, config *Config, r *redis.Client, cache *Cache) *Site {
 	return &Site{
@@ -46,6 +50,8 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 		currentNumberKey:             domain + SuffixCurrentNo,
 		lastNumberKey:                domain + SuffixLastNo,
 		appendPermittedNumberLockKey: domain + SuffixPermittedNoLock,
+		cacheEnabledQueueKey:         domain + SuffixCacheEnabledQueue,
+		cacheEnableKey:               domain + SuffixCacheEnable,
 	}
 }
 
@@ -181,6 +187,8 @@ func (s *Site) flushPermittedNumberCache() {
 }
 
 func (s *Site) Reset() error {
+	s.cache.Delete(s.cacheEnabledQueueKey)
+	s.cache.Delete(s.cacheEnableKey)
 	pipe := s.redisC.Pipeline()
 	pipe.ZRem(s.ctx, EnableDomainKey, s.domain)
 	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey, s.lastNumberKey)
@@ -201,10 +209,13 @@ func (s *Site) isInWhitelist() (bool, error) {
 
 func (s *Site) isEnabledQueue(cache bool) (bool, error) {
 	if cache {
-		cacheKey := s.permittedNumberKey + "_enable_queue_cache"
-		// 前回チェック時に有効だった
-		if s.cache.Exists(cacheKey) {
-			return true, nil
+		v, found := s.cache.Get(s.cacheEnabledQueueKey)
+		if found {
+			if v == "1" {
+				return true, nil
+			} else if v == "0" {
+				return false, nil
+			}
 		}
 
 		if _, err := s.cache.GetAndFetchIfExpired(
@@ -212,11 +223,12 @@ func (s *Site) isEnabledQueue(cache bool) (bool, error) {
 			s.permittedNumberKey); err != nil {
 			if err == redis.Nil {
 				// ドメインでqueueが有効ではないので制限されていない
+				s.cache.Set(s.cacheEnabledQueueKey, "0", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
 				return false, nil
 			}
 			return false, err
 		}
-		s.cache.Set(cacheKey, "1", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
+		s.cache.Set(s.cacheEnabledQueueKey, "1", time.Duration(s.config.CacheTTLSec)*time.Second)
 		return true, nil
 
 	} else {
@@ -233,8 +245,7 @@ func (s *Site) isEnabledQueue(cache bool) (bool, error) {
 
 // 制限中ドメインリストに、ロックを取りながらドメインを追加する
 func (s *Site) EnableQueue() error {
-	cacheKey := s.permittedNumberKey + "_enable_cache"
-	if !s.cache.Exists(cacheKey) {
+	if !s.cache.Exists(s.cacheEnableKey) {
 		pipe := s.redisC.Pipeline()
 		// 値があれば上書きしない、なければ作る
 		pipe.SetNX(s.ctx, s.permittedNumberKey, "0", 0)
@@ -250,7 +261,7 @@ func (s *Site) EnableQueue() error {
 		}
 
 		// 大量に更新するとパフォーマンスが落ちるので、TTLの半分の時間は何もしない
-		s.cache.Set(cacheKey, "1", time.Duration(s.config.QueueEnableSec/2)*time.Second)
+		s.cache.Set(s.cacheEnableKey, "1", time.Duration(s.config.QueueEnableSec/2)*time.Second)
 	}
 	return nil
 }
