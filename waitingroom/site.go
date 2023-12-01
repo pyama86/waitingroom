@@ -239,7 +239,7 @@ func (s *Site) isEnabledQueue(cache bool) (bool, error) {
 			}
 			return false, err
 		}
-		return (num > 0), nil
+		return (num >= 0), nil
 	}
 }
 
