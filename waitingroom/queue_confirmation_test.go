@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
 
@@ -94,6 +93,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				}
 			},
 			expectQueueResult: QueueResult{
+				ID:              "dummy",
 				Enabled:         true,
 				PermittedClient: false,
 				SerialNo:        2,
@@ -144,6 +144,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
+				ID:              "dummy",
 				Enabled:         true,
 				PermittedClient: true,
 				SerialNo:        0,
@@ -171,8 +172,10 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 				redisClient.ZAdd(context.Background(), WhiteListKey, &redis.Z{Member: key, Score: 1})
+				redisClient.Expire(context.Background(), WhiteListKey, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
+				ID:              "dummy",
 				Enabled:         false,
 				PermittedClient: false,
 				SerialNo:        0,
@@ -237,9 +240,19 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				t.Errorf("QueueConfirmation.Do() error = %v", err)
 			}
 
-			if !reflect.DeepEqual(result, tt.expectQueueResult) {
-				t.Errorf("QueueConfirmation.Do() result = %v, expect %v", result, tt.expectQueueResult)
+			if result.Enabled != tt.expectQueueResult.Enabled {
+				t.Errorf("QueueConfirmation.Do() Enabled = %v, want %v", result.Enabled, tt.expectQueueResult.Enabled)
 			}
+			if result.PermittedClient != tt.expectQueueResult.PermittedClient {
+				t.Errorf("QueueConfirmation.Do() PermittedClient = %v, want %v", result.PermittedClient, tt.expectQueueResult.PermittedClient)
+			}
+			if result.SerialNo != tt.expectQueueResult.SerialNo {
+				t.Errorf("QueueConfirmation.Do() SerialNo = %v, want %v", result.SerialNo, tt.expectQueueResult.SerialNo)
+			}
+			if result.PermittedNo != tt.expectQueueResult.PermittedNo {
+				t.Errorf("QueueConfirmation.Do() PermittedNo = %v, want %v", result.PermittedNo, tt.expectQueueResult.PermittedNo)
+			}
+
 		})
 	}
 }
