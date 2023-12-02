@@ -570,7 +570,6 @@ func TestSite_isPermittedClient(t *testing.T) {
 				SerialNumber: 1,
 			},
 			beforeHook: func(c *Client, s *Site, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), s.permittedNumberKey, 10, 10*time.Second)
 				redisClient.SetEX(context.Background(), c.ID, 1, 10*time.Second)
 			},
 			want: true,
@@ -585,8 +584,35 @@ func TestSite_isPermittedClient(t *testing.T) {
 				ID:           testRandomString(10),
 				SerialNumber: 100,
 			},
+			want: false,
+		},
+		{
+			name: "positive cache",
+			fields: fields{
+				config:             &Config{},
+				permittedNumberKey: testRandomString(10),
+			},
+			client: &Client{
+				ID:           testRandomString(10),
+				SerialNumber: 1,
+			},
 			beforeHook: func(c *Client, s *Site, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), s.permittedNumberKey, 10, 10*time.Second)
+				s.cache.Set(c.ID, "1", time.Second*10)
+			},
+			want: true,
+		},
+		{
+			name: "negative cache",
+			fields: fields{
+				config:             &Config{},
+				permittedNumberKey: testRandomString(10),
+			},
+			client: &Client{
+				ID:           testRandomString(10),
+				SerialNumber: 1,
+			},
+			beforeHook: func(c *Client, s *Site, redisClient *redis.Client) {
+				s.cache.Set(c.ID, "-1", time.Second*10)
 			},
 			want: false,
 		},
@@ -618,7 +644,8 @@ func TestSite_isPermittedClient(t *testing.T) {
 			}
 			// for not yet started
 			if tt.beforeHook == nil {
-				if !s.cache.Exists(s.permittedNumberKey + "_disable_queue_cache") {
+				v, _ := s.cache.Get(tt.client.ID)
+				if v != "-1" {
 					t.Error("Site.isPermittedClient() not created cache")
 				}
 			}
@@ -764,6 +791,20 @@ func TestSite_currentPermitedNumber(t *testing.T) {
 					QueueEnableSec: 10,
 				},
 				permittedNumberKey: testRandomString(10),
+			},
+			useCache: true,
+			wantErr:  true,
+		},
+		{
+			name: "negative cache(usecache)",
+			fields: fields{
+				config: &Config{
+					QueueEnableSec: 10,
+				},
+				permittedNumberKey: testRandomString(10),
+			},
+			beforeHook: func(s *Site, redisClient *redis.Client) {
+				s.cache.Set(s.permittedNumberKey, "-1", 10*time.Second)
 			},
 			useCache: true,
 			wantErr:  true,
