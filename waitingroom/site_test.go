@@ -45,7 +45,6 @@ func TestNewSite(t *testing.T) {
 				currentNumberKey:             "example.com_current_no",
 				appendPermittedNumberLockKey: "example.com_permitted_no_lock",
 				lastNumberKey:                "example.com_last_no",
-				cacheEnabledQueueKey:         "example.com_enabled_queue_cache",
 				cacheEnableKey:               "example.com_enable_cache",
 			},
 		},
@@ -557,6 +556,7 @@ func TestSite_isPermittedClient(t *testing.T) {
 		fields     fields
 		client     *Client
 		want       bool
+		wantErr    bool
 		beforeHook func(*Client, *Site, *redis.Client)
 	}{
 		{
@@ -608,7 +608,11 @@ func TestSite_isPermittedClient(t *testing.T) {
 				tt.beforeHook(tt.client, s, redisClient)
 			}
 
-			got := s.isPermittedClient(tt.client)
+			got, err := s.isPermittedClient(tt.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Site.isPermittedClient() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 			if got != tt.want {
 				t.Errorf("Site.isPermittedClient() = %v, want %v", got, tt.want)
 			}

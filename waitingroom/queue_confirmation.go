@@ -54,8 +54,13 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 	if ok {
 		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
 	}
+	ok, err = site.isPermittedClient(client)
 
-	if site.isPermittedClient(client) {
+	if err != nil {
+		return NewError(http.StatusInternalServerError, err, " can't get permit status")
+	}
+
+	if ok {
 		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 	}
 

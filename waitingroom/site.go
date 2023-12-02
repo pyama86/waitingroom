@@ -22,7 +22,6 @@ type Site struct {
 	currentNumberKey             string // 現在の発券番号
 	lastNumberKey                string // 最後にチェックしたときの発券番号
 	appendPermittedNumberLockKey string // 許可番号を更新する際のロックキー
-	cacheEnabledQueueKey         string // 有効になっているかどうかのキャッシュ
 	cacheEnableKey               string // 最後に有効にしてからの処理遅延のキャッシュ
 }
 
@@ -36,7 +35,6 @@ const SuffixPermittedNo = "_permitted_no"
 const SuffixCurrentNo = "_current_no"
 const SuffixLastNo = "_last_no"
 const SuffixPermittedNoLock = "_permitted_no_lock"
-const SuffixCacheEnabledQueue = "_enabled_queue_cache"
 const SuffixCacheEnable = "_enable_cache"
 
 func NewSite(c context.Context, domain string, config *Config, r *redis.Client, cache *Cache) *Site {
@@ -50,7 +48,6 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 		currentNumberKey:             domain + SuffixCurrentNo,
 		lastNumberKey:                domain + SuffixLastNo,
 		appendPermittedNumberLockKey: domain + SuffixPermittedNoLock,
-		cacheEnabledQueueKey:         domain + SuffixCacheEnabledQueue,
 		cacheEnableKey:               domain + SuffixCacheEnable,
 	}
 }
@@ -190,7 +187,6 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 
 func (s *Site) flushCache() {
 	s.cache.Delete(s.permittedNumberKey)
-	s.cache.Delete(s.cacheEnabledQueueKey)
 	s.cache.Delete(s.cacheEnableKey)
 }
 
@@ -216,28 +212,12 @@ func (s *Site) isInWhitelist() (bool, error) {
 
 func (s *Site) isEnabledQueue(cache bool) (bool, error) {
 	if cache {
-		v, found := s.cache.Get(s.cacheEnabledQueueKey)
-		if found {
-			if v == "1" {
-				return true, nil
-			} else if v == "0" {
-				return false, nil
-			}
+		v, err := s.currentPermitedNumber(true)
+		if err != nil && err == redis.Nil {
+			return false, nil
 		}
 
-		if _, err := s.cache.GetAndFetchIfExpired(
-			s.ctx,
-			s.permittedNumberKey); err != nil {
-			if err == redis.Nil {
-				// ドメインでqueueが有効ではないので制限されていない
-				s.cache.Set(s.cacheEnabledQueueKey, "0", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
-				return false, nil
-			}
-			return false, err
-		}
-		s.cache.Set(s.cacheEnabledQueueKey, "1", time.Duration(s.config.CacheTTLSec)*time.Second)
-		return true, nil
-
+		return v > 0, err
 	} else {
 		num, err := s.redisC.Exists(s.ctx, s.permittedNumberKey).Uint64()
 		if err != nil {
@@ -273,15 +253,20 @@ func (s *Site) EnableQueue() error {
 	return nil
 }
 
-func (s *Site) isPermittedClient(client *Client) bool {
+func (s *Site) isPermittedClient(client *Client) (bool, error) {
 	// 許可済みのコネクション
 	if client.ID != "" {
-		_, err := s.cache.GetAndFetchIfExpired(s.ctx, client.ID)
-		if err == nil {
-			return true
+		v, err := s.cache.GetAndFetchIfExpired(s.ctx, client.ID)
+		if err != nil {
+			if err == redis.Nil {
+				s.cache.Set(client.ID, "-1", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
+				return false, nil
+			}
+			return false, err
 		}
+		return v != "-1", nil
 	}
-	return false
+	return false, nil
 }
 
 func (s *Site) incrCurrentNumber() (int64, error) {
@@ -300,10 +285,18 @@ func (s *Site) currentPermitedNumber(useCache bool) (int64, error) {
 	if useCache {
 		v, err := s.cache.GetAndFetchIfExpired(s.ctx, s.permittedNumberKey)
 		if err != nil {
+			if err == redis.Nil {
+				// ドメインでqueueが有効ではないので制限されていない
+				s.cache.Set(s.permittedNumberKey, "-1", time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
+			}
 			return 0, err
+		}
+		if v == "-1" {
+			return 0, redis.Nil
 		}
 		return strconv.ParseInt(v, 10, 64)
 	}
+
 	v, err := s.redisC.Get(s.ctx, s.permittedNumberKey).Int64()
 	if err != nil {
 		return 0, err
