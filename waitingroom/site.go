@@ -307,6 +307,9 @@ func (s *Site) currentPermitedNumber(useCache bool) (int64, error) {
 func (s *Site) isClientPermit(c *Client) (bool, error) {
 	an, err := s.currentPermitedNumber(true)
 	if err != nil {
+		if err == redis.Nil {
+			return true, nil
+		}
 		return false, err
 	}
 
