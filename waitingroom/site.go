@@ -246,7 +246,7 @@ func (s *Site) EnableQueue() error {
 		if err != nil {
 			return err
 		}
-
+		s.flushCache()
 		// 大量に更新するとパフォーマンスが落ちるので、TTLの半分の時間は何もしない
 		s.cache.Set(s.cacheEnableKey, "1", time.Duration(s.config.QueueEnableSec/2)*time.Second)
 	}
