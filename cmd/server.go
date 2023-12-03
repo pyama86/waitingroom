@@ -84,7 +84,7 @@ var serverCmd = &cobra.Command{
 			logrus.Fatal(err)
 		}
 
-		validate := validator.New()
+		validate := validator.New(validator.WithRequiredStructEnabled())
 		if err := validate.Struct(config); err != nil {
 			logrus.Fatal(err)
 		}
