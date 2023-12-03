@@ -217,7 +217,7 @@ func (s *Site) isEnabledQueue(cache bool) (bool, error) {
 			return false, nil
 		}
 
-		return v > 0, err
+		return v >= 0, err
 	} else {
 		num, err := s.redisC.Exists(s.ctx, s.permittedNumberKey).Uint64()
 		if err != nil {
