@@ -400,7 +400,7 @@ func TestSite_isEnabledQueue(t *testing.T) {
 				permittedNumberKey: testRandomString(10),
 			},
 			beforeHook: func(s *Site, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), s.permittedNumberKey, 10, 10*time.Second)
+				redisClient.SetEX(context.Background(), s.permittedNumberKey, 0, 10*time.Second)
 			},
 			want:    true,
 			wantErr: false,
