@@ -68,7 +68,7 @@ var serverCmd = &cobra.Command{
 	Short: "starting waitingroom server",
 	Long:  `It is starting waitingroom servercommand.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		config := &waitingroom.Config{}
+		config := waitingroom.Config{}
 
 		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 		viper.SetEnvPrefix("WAITINGROOM")
@@ -88,7 +88,7 @@ var serverCmd = &cobra.Command{
 		if err := validate.Struct(config); err != nil {
 			logrus.Fatal(err)
 		}
-		if err := runServer(cmd, config); err != nil {
+		if err := runServer(cmd, &config); err != nil {
 			logrus.Fatal(err)
 		}
 	},
