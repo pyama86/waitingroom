@@ -46,7 +46,8 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
-	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
@@ -115,7 +116,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
-	tp, err := initTracer()
+	tp, err := initTracer(ctx)
 	if err != nil {
 		return err
 	}
@@ -170,9 +171,12 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		config,
 		redisc,
 		cache,
+		tracer,
 	)
 
 	e.GET("/status", func(c echo.Context) error {
+		_, span := tracer.Start(c.Request().Context(), "/status")
+		defer span.End()
 		var ctx = context.Background()
 		_, err := redisc.Ping(ctx).Result()
 		if err != nil {
@@ -264,14 +268,25 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 }
 
-func initTracer() (*sdktrace.TracerProvider, error) {
-	exporter, err := stdout.New(stdout.WithPrettyPrint())
+func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if !ok {
+		otelAgentAddr = "0.0.0.0:4317"
+	}
+
+	client := otlptracehttp.NewClient(
+		otlptracehttp.WithInsecure(),
+		otlptracehttp.WithEndpoint(otelAgentAddr))
+
+	exporter, err := otlptrace.New(ctx, client)
 	if err != nil {
 		return nil, err
 	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(exporter),
+		sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(exporter)),
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
