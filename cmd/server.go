@@ -112,11 +112,11 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 			`"status":${status},"error":"${error}","latency":"${latency_human}"}` + "\n",
 	}))
 
-	e.Use(otelecho.Middleware("waitingroom"))
 	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	tp, err := initTracer(ctx)
+	e.Use(otelecho.Middleware("waitingroom", otelecho.WithTracerProvider(tp)))
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,6 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		config,
 		redisc,
 		cache,
-		tracer,
 	)
 
 	e.GET("/status", func(c echo.Context) error {
