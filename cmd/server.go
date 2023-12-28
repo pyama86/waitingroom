@@ -57,8 +57,6 @@ var secureCookie = securecookie.New(
 	securecookie.GenerateRandomKey(32),
 )
 
-var tracer = otel.Tracer("waitingroom")
-
 func init() {
 	if os.Getenv("WAITINGROOM_COOKIE_SECRET_HASH_KEY") != "" && os.Getenv("WAITINGROOM_COOKIE_SECRET_BLOCK_KEY") != "" {
 		sc := securecookie.New(
@@ -174,8 +172,6 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	)
 
 	e.GET("/status", func(c echo.Context) error {
-		_, span := tracer.Start(c.Request().Context(), "/status")
-		defer span.End()
 		var ctx = context.Background()
 		_, err := redisc.Ping(ctx).Result()
 		if err != nil {
