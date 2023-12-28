@@ -45,12 +45,18 @@ import (
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/otel"
+	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var secureCookie = securecookie.New(
 	securecookie.GenerateRandomKey(64),
 	securecookie.GenerateRandomKey(32),
 )
+
+var tracer = otel.Tracer("waitingroom")
 
 func init() {
 	if os.Getenv("WAITINGROOM_COOKIE_SECRET_HASH_KEY") != "" && os.Getenv("WAITINGROOM_COOKIE_SECRET_BLOCK_KEY") != "" {
@@ -109,6 +115,15 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
+	tp, err := initTracer()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down tracer provider: %v", err)
+		}
+	}()
 	defer cancel()
 	switch config.LogLevel {
 	case "debug":
@@ -143,7 +158,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	}
 
 	redisc := redis.NewClient(&redisOptions)
-	_, err := redisc.Ping(ctx).Result()
+	_, err = redisc.Ping(ctx).Result()
 	if err != nil {
 		return err
 	}
@@ -247,4 +262,18 @@ func init() {
 	viper.BindEnv("slack_api_token", "SLACK_API_TOKEN")
 	viper.BindEnv("slack_channel", "SLACK_CHANNEL")
 	rootCmd.AddCommand(serverCmd)
+}
+
+func initTracer() (*sdktrace.TracerProvider, error) {
+	exporter, err := stdout.New(stdout.WithPrettyPrint())
+	if err != nil {
+		return nil, err
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exporter),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	return tp, nil
 }
