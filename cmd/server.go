@@ -115,8 +115,12 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if ok {
+	if config.EnableOtel {
+		otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+		if !ok {
+			otelAgentAddr = "127.0.0.1:4317"
+		}
+
 		tp, err := initTracer(ctx, otelAgentAddr)
 		e.Use(otelecho.Middleware("waitingroom", otelecho.WithTracerProvider(tp)))
 		if err != nil {
@@ -251,6 +255,9 @@ func init() {
 	serverCmd.PersistentFlags().String("public-host", "localhost:18080", "public host for swagger")
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
 	viper.BindPFlag("PublicHost", serverCmd.PersistentFlags().Lookup("public-host"))
+
+	serverCmd.PersistentFlags().Bool("otel", false, "use otel")
+	viper.BindPFlag("enable_otel", serverCmd.PersistentFlags().Lookup("otel"))
 
 	serverCmd.PersistentFlags().Bool("dev", false, "dev mode")
 
