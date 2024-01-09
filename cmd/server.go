@@ -113,17 +113,22 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
-	tp, err := initTracer(ctx)
-	e.Use(otelecho.Middleware("waitingroom", otelecho.WithTracerProvider(tp)))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			log.Printf("Error shutting down tracer provider: %v", err)
-		}
-	}()
 	defer cancel()
+
+	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if ok {
+		tp, err := initTracer(ctx, otelAgentAddr)
+		e.Use(otelecho.Middleware("waitingroom", otelecho.WithTracerProvider(tp)))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				log.Printf("Error shutting down tracer provider: %v", err)
+			}
+		}()
+	}
+
 	switch config.LogLevel {
 	case "debug":
 		e.Logger.SetLevel(log.DEBUG)
@@ -157,7 +162,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	}
 
 	redisc := redis.NewClient(&redisOptions)
-	_, err = redisc.Ping(ctx).Result()
+	_, err := redisc.Ping(ctx).Result()
 	if err != nil {
 		return err
 	}
@@ -263,12 +268,7 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 }
 
-func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
-	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if !ok {
-		otelAgentAddr = "0.0.0.0:4317"
-	}
-
+func initTracer(ctx context.Context, otelAgentAddr string) (*sdktrace.TracerProvider, error) {
 	client := otlptracehttp.NewClient(
 		otlptracehttp.WithInsecure(),
 		otlptracehttp.WithEndpoint(otelAgentAddr))
