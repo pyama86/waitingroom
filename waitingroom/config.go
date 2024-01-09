@@ -14,4 +14,5 @@ type Config struct {
 	PublicHost          string `mapstructure:"public_host,omitempty"`                                                                               // 公開URLのホスト
 	SlackApiToken       string `mapstructure:"slack_api_token,omitempty"`                                                                           // Slack Api Token
 	SlackChannel        string `mapstructure:"slack_channel,omitempty"`                                                                             // Slack Channel
+	EnableOtel          bool   `mapstructure:"enable_otel,omitempty"`                                                                               // OpenTelemetryによるトレースを有効にする
 }

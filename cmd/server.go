@@ -45,6 +45,11 @@ import (
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var secureCookie = securecookie.New(
@@ -105,11 +110,29 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 			`"status":${status},"error":"${error}","latency":"${latency_human}"}` + "\n",
 	}))
 
-	e.Use(otelecho.Middleware("waitingroom"))
 	e.HideBanner = true
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	if config.EnableOtel {
+		otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+		if !ok {
+			otelAgentAddr = "127.0.0.1:4317"
+		}
+
+		tp, err := initTracer(ctx, otelAgentAddr)
+		e.Use(otelecho.Middleware("waitingroom", otelecho.WithTracerProvider(tp)))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				log.Printf("Error shutting down tracer provider: %v", err)
+			}
+		}()
+	}
+
 	switch config.LogLevel {
 	case "debug":
 		e.Logger.SetLevel(log.DEBUG)
@@ -233,6 +256,9 @@ func init() {
 	viper.BindPFlag("Listener", serverCmd.PersistentFlags().Lookup("listener"))
 	viper.BindPFlag("PublicHost", serverCmd.PersistentFlags().Lookup("public-host"))
 
+	serverCmd.PersistentFlags().Bool("otel", false, "use otel")
+	viper.BindPFlag("enable_otel", serverCmd.PersistentFlags().Lookup("otel"))
+
 	serverCmd.PersistentFlags().Bool("dev", false, "dev mode")
 
 	viper.SetDefault("client_polling_interval_sec", 60)
@@ -247,4 +273,24 @@ func init() {
 	viper.BindEnv("slack_api_token", "SLACK_API_TOKEN")
 	viper.BindEnv("slack_channel", "SLACK_CHANNEL")
 	rootCmd.AddCommand(serverCmd)
+}
+
+func initTracer(ctx context.Context, otelAgentAddr string) (*sdktrace.TracerProvider, error) {
+	client := otlptracehttp.NewClient(
+		otlptracehttp.WithInsecure(),
+		otlptracehttp.WithEndpoint(otelAgentAddr))
+
+	exporter, err := otlptrace.New(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(exporter)),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	return tp, nil
 }
