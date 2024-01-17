@@ -26,7 +26,7 @@ jobs:
 
     - name: Build
       run: |
-        git config --global --add safe.directory /__w/ngx_waitingroom/ngx_waitingroom
+        git config --global --add safe.directory /__w/waitingroom/waitingroom
         go build -v ./...
 
     - name: Test
