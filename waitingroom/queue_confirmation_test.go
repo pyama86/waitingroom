@@ -39,6 +39,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				config: &Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
+					PermitUnitNumber:   10,
+					PermitIntervalSec:  10,
 				},
 			},
 			client:     Client{},
@@ -72,6 +74,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				config: &Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
+					PermitUnitNumber:   10,
+					PermitIntervalSec:  10,
 				},
 			},
 			client: Client{
@@ -81,7 +85,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 31, 10*time.Second)
 				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
 			},
 			expect: func(t *testing.T, c *Client, r *redis.Client) {
@@ -93,10 +97,11 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				}
 			},
 			expectQueueResult: QueueResult{
-				Enabled:         true,
-				PermittedClient: false,
-				SerialNo:        2,
-				PermittedNo:     1,
+				Enabled:             true,
+				PermittedClient:     false,
+				SerialNo:            32,
+				PermittedNo:         1,
+				RemainingWaitSecond: 40,
 			},
 		},
 		{
@@ -108,6 +113,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				config: &Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
+					PermitUnitNumber:   10,
+					PermitIntervalSec:  10,
 				},
 			},
 			client:     Client{},
@@ -129,6 +136,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				config: &Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
+					PermitUnitNumber:   10,
+					PermitIntervalSec:  10,
 				},
 			},
 			client: Client{
@@ -158,6 +167,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				config: &Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
+					PermitUnitNumber:   10,
+					PermitIntervalSec:  10,
 				},
 			},
 			client: Client{
@@ -250,6 +261,9 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				t.Errorf("QueueConfirmation.Do() PermittedNo = %v, want %v", result.PermittedNo, tt.expectQueueResult.PermittedNo)
 			}
 
+			if result.RemainingWaitSecond != tt.expectQueueResult.RemainingWaitSecond {
+				t.Errorf("QueueConfirmation.Do() RemainingWaitSecond = %v, want %v", result.RemainingWaitSecond, tt.expectQueueResult.RemainingWaitSecond)
+			}
 		})
 	}
 }
