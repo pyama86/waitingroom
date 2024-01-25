@@ -32,11 +32,12 @@ func NewQueueConfirmation(
 const paramDomainKey = "domain"
 
 type QueueResult struct {
-	ID              string
-	Enabled         bool  `json:"enabled"`
-	PermittedClient bool  `json:"permitted_client"`
-	SerialNo        int64 `json:"serial_no"`
-	PermittedNo     int64 `json:"permitted_no"`
+	ID                  string
+	Enabled             bool  `json:"enabled"`
+	PermittedClient     bool  `json:"permitted_client"`
+	SerialNo            int64 `json:"serial_no"`
+	PermittedNo         int64 `json:"permitted_no"`
+	RemainingWaitSecond int64 `json:"remaining_wait_second"`
 }
 
 func (p *QueueConfirmation) Do(c echo.Context) error {
@@ -108,10 +109,21 @@ func (p *QueueConfirmation) Do(c echo.Context) error {
 		cp = lcp
 	}
 
+	remainingWaitSecond := int64(0)
+	waitDiff := client.SerialNumber - cp
+	if waitDiff > 0 {
+		if waitDiff%p.config.PermitUnitNumber == 0 {
+			remainingWaitSecond = waitDiff / p.config.PermitUnitNumber * int64(p.config.PermitIntervalSec)
+		} else {
+			remainingWaitSecond = (waitDiff/p.config.PermitUnitNumber + 1) * int64(p.config.PermitIntervalSec)
+		}
+	}
 	return c.JSON(http.StatusTooManyRequests, QueueResult{
-		ID:              client.ID,
-		Enabled:         true,
-		PermittedClient: false,
-		SerialNo:        client.SerialNumber,
-		PermittedNo:     cp})
+		ID:                  client.ID,
+		Enabled:             true,
+		PermittedClient:     false,
+		SerialNo:            client.SerialNumber,
+		PermittedNo:         cp,
+		RemainingWaitSecond: remainingWaitSecond,
+	})
 }
