@@ -127,7 +127,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 			return err
 		}
 		defer func() {
-			if err := tp.Shutdown(context.Background()); err != nil {
+			if err := tp.Shutdown(ctx); err != nil {
 				log.Printf("Error shutting down tracer provider: %v", err)
 			}
 		}()
@@ -181,7 +181,6 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	)
 
 	e.GET("/status", func(c echo.Context) error {
-		var ctx = context.Background()
 		_, err := redisc.Ping(ctx).Result()
 		if err != nil {
 			return waitingroom.NewError(http.StatusInternalServerError, err, "datastore connection error")
@@ -239,7 +238,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
-	qctx, qcancel := context.WithTimeout(context.Background(), 10*time.Second)
+	qctx, qcancel := context.WithTimeout(ctx, 10*time.Second)
 	defer qcancel()
 	if err := e.Shutdown(qctx); err != nil {
 		return err
