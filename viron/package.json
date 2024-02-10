@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cam-inc/viron.git"
+    "url": "git+https://github.com/pyama86/viron.git"
   },
   "keywords": [
     "management",
@@ -19,9 +19,9 @@
   "author": "fkei",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/cam-inc/viron/issues"
+    "url": "https://github.com/pyama86/viron/issues"
   },
-  "homepage": "https://github.com/cam-inc/viron#readme",
+  "homepage": "https://github.com/pyama86/viron#readme",
   "scripts": {
     "dev": "docker-compose -f docker-compose.dev.yml up --build",
     "prepush": "npm run test",
