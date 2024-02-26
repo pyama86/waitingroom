@@ -19,7 +19,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.3
-	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.48.0
+	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.49.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.24.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 )
