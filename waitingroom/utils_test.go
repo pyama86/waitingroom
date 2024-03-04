@@ -5,17 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net/http/httptest"
 	"os"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 )
 
 func init() {
-	logrus.SetOutput(io.Discard)
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	slog.SetDefault(logger)
+
 }
 func testContext(path, method string, params map[string]string) (echo.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
