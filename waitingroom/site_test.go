@@ -847,7 +847,7 @@ func TestSite_currentPermitedNumber(t *testing.T) {
 	}
 }
 
-func TestSite_isClientPermit(t *testing.T) {
+func TestSite_permitClient(t *testing.T) {
 	type fields struct {
 		domain             string
 		config             *Config
@@ -915,12 +915,12 @@ func TestSite_isClientPermit(t *testing.T) {
 				tt.beforeHook(tt.client, s, redisClient)
 			}
 
-			got, err := s.isClientPermit(tt.client)
+			got, err := s.permitClient(tt.client)
 			if got != tt.want {
-				t.Errorf("Site.isClientPermit() = %v, want %v", got, tt.want)
+				t.Errorf("Site.permitClient() = %v, want %v", got, tt.want)
 			}
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Site.isClientPermit() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Site.permitClient() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 

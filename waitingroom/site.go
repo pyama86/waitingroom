@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -83,10 +84,18 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	}
 	// 前回チェック時より、クライアントが増えていない場合は、即時解除する
 	if ln == cn && cn <= an {
-		e.Logger.Infof("reset waitingroom domain: %s current: %d ttl: %d, permit: %d lastNumber:%d", s.domain, cn, ttl/time.Second, an, ln)
+		slog.Info(
+			"reset waitingroom",
+			slog.String("domain", s.domain),
+			slog.Int("current", int(cn)),
+			slog.Int("permit", int(an)),
+			slog.Int("lastNumber", int(ln)),
+			slog.String("ttl", ttl.String()),
+		)
+
 		err = s.notifySlackWithPermittedStatus(e, "Reset WaitingRoom", ttl, an, cn)
 		if err != nil {
-			e.Logger.Errorf("failed to notify slack: %s", err)
+			slog.Error(fmt.Sprintf("failed to notify slack: %s", err))
 		}
 
 		if err := s.Reset(); err != nil {
@@ -123,11 +132,21 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 		return fmt.Errorf("domain: %s current: %d ttl: %d permit: %d, err: %s", s.domain, cn, an, ttl/time.Second, err)
 	}
 
-	e.Logger.Infof("append permit number domain: %s current: %d ttl: %d, permit: %d", s.domain, cn, ttl/time.Second, an)
+	slog.Info(
+		"append permit number",
+		slog.String("domain", s.domain),
+		slog.Int("current", int(cn)),
+		slog.Int("permit", int(an)),
+		slog.String("ttl", ttl.String()),
+	)
 
 	err = s.notifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
 	if err != nil {
-		e.Logger.Errorf("failed to notify slack: %s", err)
+		slog.Error(
+			"failed to notify slack",
+			slog.String("domain", s.domain),
+			slog.String("error", err.Error()),
+		)
 	}
 
 	return nil
@@ -136,7 +155,13 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl time.Duration, permittedNumber, currentNumber int64) error {
 
 	if currentNumber < 5 {
-		e.Logger.Infof("skip notify slack domain: %s current: %d ttl: %d, permit: %d", s.domain, currentNumber, ttl/time.Second, permittedNumber)
+		slog.Info(
+			"skip notify slack",
+			slog.String("domain", s.domain),
+			slog.Int64("current", currentNumber),
+			slog.Int64("permit", permittedNumber),
+			slog.String("ttl", ttl.String()),
+		)
 		return nil
 	}
 
@@ -168,7 +193,10 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 	}
 
 	if ok {
-		e.Logger.Infof("got lock %v", s.domain)
+		slog.Info(
+			"got lock",
+			slog.String("domain", s.domain),
+		)
 		err = s.redisC.Expire(s.ctx, s.appendPermittedNumberLockKey, time.Duration(s.config.PermitIntervalSec)*time.Second).Err()
 		if err != nil {
 			return fmt.Errorf("failed to set expire %s:%v", s.domain, err)
@@ -176,7 +204,7 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 
 		if err := s.appendPermitNumber(e); err != nil {
 			if errors.Is(err, ErrClientNotIncrese) {
-				e.Logger.Infof("client not increase %v", s.domain)
+				slog.Info("client not increase", slog.String("domain", s.domain))
 				return nil
 			}
 			return fmt.Errorf("failed to append permit number %s:%v", s.domain, err)
@@ -249,6 +277,7 @@ func (s *Site) EnableQueue() error {
 		s.flushCache()
 		// 大量に更新するとパフォーマンスが落ちるので、TTLの半分の時間は何もしない
 		s.cache.Set(s.cacheEnableKey, "1", time.Duration(s.config.QueueEnableSec/2)*time.Second)
+		slog.Info("EnableQueue", slog.String("enable queue", s.domain))
 	}
 	return nil
 }
@@ -304,7 +333,7 @@ func (s *Site) currentPermitedNumber(useCache bool) (int64, error) {
 	return v, nil
 }
 
-func (s *Site) isClientPermit(c *Client) (bool, error) {
+func (s *Site) permitClient(c *Client) (bool, error) {
 	an, err := s.currentPermitedNumber(true)
 	if err != nil {
 		if err == redis.Nil {
@@ -323,6 +352,7 @@ func (s *Site) isClientPermit(c *Client) (bool, error) {
 			return false, err
 		}
 
+		slog.Info("PermitClient", slog.String("permit client", c.ID))
 		return true, nil
 	}
 	return false, nil

@@ -2,6 +2,7 @@ package waitingroom
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -31,7 +32,10 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 	}
 
 	for _, m := range members {
-		e.Logger.Infof("try permit access %v", m)
+		slog.Info(
+			"try permit access",
+			"domain", m,
+		)
 		site := NewSite(ctx, m, a.config, a.redisClient, a.cache)
 		site.flushCache()
 
@@ -40,7 +44,10 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			return err
 		}
 		if !ok {
-			e.Logger.Infof("domain %v is not enabled", m)
+			slog.Info(
+				"domain is not enabled",
+				"domain", m,
+			)
 			if err := site.Reset(); err != nil {
 				return err
 			}

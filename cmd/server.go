@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -40,7 +41,6 @@ import (
 	"github.com/pyama86/ngx_waitingroom/api"
 	"github.com/pyama86/ngx_waitingroom/docs"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -88,29 +88,71 @@ var serverCmd = &cobra.Command{
 		}
 
 		if err := viper.Unmarshal(&config); err != nil {
-			logrus.Fatal(err)
+			log.Fatal(err)
 		}
 
 		validate := validator.New(validator.WithRequiredStructEnabled())
 		if err := validate.Struct(config); err != nil {
-			logrus.Fatal(err)
+			log.Fatal(err)
 		}
 		if err := runServer(cmd, &config); err != nil {
-			logrus.Fatal(err)
+			log.Fatal(err)
 		}
 	},
 }
 
 func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	e := echo.New()
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Skipper: func(c echo.Context) bool {
-			return c.Request().RequestURI == "/status"
+
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus:   true,
+		LogURI:      true,
+		LogError:    true,
+		HandleError: true, // forwards error to the global error handler, so it can decide appropriate status code
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			if v.Error == nil {
+				slog.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST",
+					slog.String("uri", v.URI),
+					slog.Int("status", v.Status),
+					slog.String("remote_ip", v.RemoteIP),
+					slog.String("host", v.Host),
+					slog.String("method", v.Method),
+				)
+			} else {
+				slog.LogAttrs(context.Background(), slog.LevelError, "REQUEST_ERROR",
+					slog.String("uri", v.URI),
+					slog.Int("status", v.Status),
+					slog.String("remote_ip", v.RemoteIP),
+					slog.String("host", v.Host),
+					slog.String("method", v.Method),
+					slog.String("err", v.Error.Error()),
+				)
+			}
+			return nil
 		},
-		Format: `{"time":"${time_rfc3339_nano}","remote_ip":"${remote_ip}",` +
-			`"host":"${host}","method":"${method}","uri":"${uri}",` +
-			`"status":${status},"error":"${error}","latency":"${latency_human}"}` + "\n",
 	}))
+
+	logLevel := slog.LevelInfo
+	switch config.LogLevel {
+	case "info":
+		logLevel = slog.LevelInfo
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		return fmt.Errorf("invalid log level: %s", config.LogLevel)
+	}
+
+	ops := slog.HandlerOptions{
+		Level: logLevel,
+	}
+
+	hostname, _ := os.Hostname()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &ops)).With(slog.String("server_host", hostname))
+	slog.SetDefault(logger)
 
 	e.HideBanner = true
 	ctx := context.Background()
@@ -130,23 +172,14 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		}
 		defer func() {
 			if err := tp.Shutdown(ctx); err != nil {
-				log.Printf("Error shutting down tracer provider: %v", err)
+				slog.Error(
+					fmt.Sprintf("Error shutting down tracer provider: %v", err),
+				)
 			}
 		}()
 	}
 
-	switch config.LogLevel {
-	case "debug":
-		e.Logger.SetLevel(log.DEBUG)
-	case "info":
-		e.Logger.SetLevel(log.INFO)
-	case "warn":
-		e.Logger.SetLevel(log.WARN)
-	case "error":
-		e.Logger.SetLevel(log.ERROR)
-	}
-
-	e.Logger.Infof("server config: %#v", config)
+	slog.Info(fmt.Sprintf("server config: %#v", config))
 	redisDB := 0
 	if os.Getenv("REDIS_DB") != "" {
 		ai, err := strconv.Atoi(os.Getenv("REDIS_DB"))
@@ -219,7 +252,7 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	e.Use(middleware.CORS())
 	go func() {
 		if err := e.Start(config.Listener); err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatal("shutting down the server", err)
+			log.Fatal("shutting down the server", err)
 		}
 	}()
 
@@ -231,7 +264,10 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		)
 		for {
 			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {
-				e.Logger.Errorf("error permit worker: %s", err)
+				slog.Error(
+					"error permit worker",
+					slog.String("error", err.Error()),
+				)
 			}
 			time.Sleep(time.Duration(config.PermitIntervalSec) * time.Second)
 		}
