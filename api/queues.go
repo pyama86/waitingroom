@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -34,7 +35,7 @@ type HTTPError struct {
 func (h *queueHandler) getQueues(c echo.Context) error {
 	page, perPage, err := paginate(c)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.Error("pagenate error", err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 
@@ -43,7 +44,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 		if err == redis.Nil {
 			return c.JSON(http.StatusNotFound, err)
 		}
-		c.Logger().Error(err)
+		slog.Error("can't get queues", err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 	c.Response().Header().Set("X-Pagination-Total-Pages", strconv.FormatInt(total, 10))

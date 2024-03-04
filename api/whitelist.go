@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -59,7 +60,7 @@ func paginate(c echo.Context) (int64, int64, error) {
 func (h *whiteListHandler) getWhiteList(c echo.Context) error {
 	page, perPage, err := paginate(c)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.Error("pagenate error", err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 
@@ -68,7 +69,7 @@ func (h *whiteListHandler) getWhiteList(c echo.Context) error {
 		if err == redis.Nil {
 			return c.JSON(http.StatusNotFound, err)
 		}
-		c.Logger().Error(err)
+		slog.Error("cant get whiteList", err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 	c.Response().Header().Set("X-Pagination-Total-Pages", strconv.FormatInt(total, 10))
