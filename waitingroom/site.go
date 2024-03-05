@@ -175,6 +175,7 @@ func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl 
 					{Type: "plain_text", Text: fmt.Sprintf("CurrentClient: %d", currentNumber)},
 					{Type: "plain_text", Text: fmt.Sprintf("PermittedNumber: %d", permittedNumber)},
 					{Type: "plain_text", Text: fmt.Sprintf("TTL: %d", ttl/time.Second)},
+					{Type: "plain_text", Text: fmt.Sprintf("Time: %s", time.Now().Format("2006-01-02 15:04:05"))},
 				},
 				nil,
 			),
