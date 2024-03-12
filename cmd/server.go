@@ -44,15 +44,20 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
+
+const DefaultOTELHTTPAddr = "localhost:4318"
 
 var secureCookie = securecookie.New(
 	securecookie.GenerateRandomKey(64),
@@ -163,23 +168,14 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	defer cancel()
 
 	if config.EnableOtel {
-		otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
-		if !ok {
-			otelAgentAddr = "127.0.0.1:4317"
-		}
-
-		tp, err := initTracer(ctx, otelAgentAddr)
-		e.Use(otelecho.Middleware("waitingroom", otelecho.WithTracerProvider(tp)))
+		cleanup, err := setupOtelProvider(ctx, "waitingroom", "0.0.1")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to setup trace provider: %w", err)
 		}
-		defer func() {
-			if err := tp.Shutdown(ctx); err != nil {
-				slog.Error(
-					fmt.Sprintf("Error shutting down tracer provider: %v", err),
-				)
-			}
-		}()
+		defer cleanup()
+		e.Use(echo.WrapMiddleware(func(h http.Handler) http.Handler {
+			return otelhttp.NewHandler(h, "waitingroom")
+		}))
 	}
 
 	slog.Info(fmt.Sprintf("server config: %#v", config))
@@ -315,25 +311,101 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 }
 
-func initTracer(ctx context.Context, otelAgentAddr string) (*sdktrace.TracerProvider, error) {
-	client := otlptracehttp.NewClient(
-		otlptracehttp.WithInsecure(),
-		otlptracehttp.WithEndpoint(otelAgentAddr))
+func setupOtelProvider(ctx context.Context, serviceName string, serviceVersion string) (func(), error) {
+	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if !ok {
+		otelAgentAddr = DefaultOTELHTTPAddr
+	}
 
-	exporter, err := otlptrace.New(ctx, client)
+	traceExporter, err := otlptracehttp.New(
+		ctx,
+		otlptracehttp.WithEndpoint(otelAgentAddr),
+		otlptracehttp.WithInsecure(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	resource := resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String("waitingroom"))
+	resource := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceNameKey.String(serviceName),
+		semconv.ServiceVersionKey.String(serviceVersion),
+	)
 
-	tp := sdktrace.NewTracerProvider(
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(exporter)),
 		sdktrace.WithResource(resource),
 	)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	return tp, nil
+	otel.SetTracerProvider(tracerProvider)
+
+	metricExporter, err := otlpmetrichttp.New(
+		ctx,
+		otlpmetrichttp.WithEndpoint(otelAgentAddr),
+		otlpmetrichttp.WithInsecure(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// マルチテナントだと、カーディナリティが高すぎてデータ量が
+	// 多くなりすぎるため、特定のメトリクスからは特定の属性を除外する
+	var views []metric.View
+	ignoreKeys := []attribute.Key{
+		"net.peer.name",
+		"server.address",
+		"client.address",
+		"net.protocol.name",
+		"net.protocol.version",
+		"http.scheme",
+		"net.host.name",
+	}
+	ignoreNames := []string{
+		"http.server.request.size",
+		"http.server.response.size",
+		"http.server.duration",
+		"http.client.request.size",
+		"http.client.response.size",
+		"http.client.duration",
+	}
+
+	for _, name := range ignoreNames {
+
+		views = append(views, metric.NewView(
+			metric.Instrument{
+				Name:  name,
+				Scope: instrumentation.Scope{Name: "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"},
+			},
+			metric.Stream{
+				AttributeFilter: attribute.NewDenyKeysFilter(ignoreKeys...),
+			},
+		))
+	}
+
+	meterProvider := metric.NewMeterProvider(
+		metric.WithResource(resource),
+		metric.WithReader(
+			metric.NewPeriodicReader(
+				metricExporter,
+				metric.WithInterval(time.Minute),
+			),
+		),
+		metric.WithView(views...),
+	)
+	otel.SetMeterProvider(meterProvider)
+
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
+
+	cleanup := func() {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		tracerProvider.Shutdown(ctx)
+		meterProvider.Shutdown(ctx)
+	}
+	return cleanup, nil
 }
