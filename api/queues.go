@@ -35,7 +35,7 @@ type HTTPError struct {
 func (h *queueHandler) getQueues(c echo.Context) error {
 	page, perPage, err := paginate(c)
 	if err != nil {
-		slog.Error("pagenate error", err)
+		slog.Error("pagenate error", slog.Any("error", err))
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 
@@ -44,7 +44,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 		if err == redis.Nil {
 			return c.JSON(http.StatusNotFound, err)
 		}
-		slog.Error("can't get queues", err)
+		slog.Error("can't get queues", slog.Any("error", err))
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 	c.Response().Header().Set("X-Pagination-Total-Pages", strconv.FormatInt(total, 10))

@@ -1,6 +1,6 @@
 module github.com/pyama86/ngx_waitingroom
 
-go 1.19
+go 1.23.2
 
 replace github.com/gorilla/securecookie v1.1.1 => github.com/pyama86/securecookie v0.0.0-20230106074229-77677d6c8f5e
 
