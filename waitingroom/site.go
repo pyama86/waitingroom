@@ -334,7 +334,7 @@ func (s *Site) CurrentPermitedNumber(useCache bool) (int64, error) {
 	return v, nil
 }
 
-func (s *Site) PermitClient(c *Client) (bool, error) {
+func (s *Site) CheckAndPermitClient(c *Client) (bool, error) {
 	an, err := s.CurrentPermitedNumber(true)
 	if err != nil {
 		if err == redis.Nil {

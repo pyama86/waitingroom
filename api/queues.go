@@ -214,23 +214,21 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return newError(http.StatusInternalServerError, err, "can't save client info")
 	}
 
+	cp := int64(0)
 	if clientSerialNumber != 0 {
-		ok, err := site.PermitClient(client)
+		lcp, err := site.CurrentPermitedNumber(true)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, "can't get current no")
+		}
+		cp = lcp
+
+		ok, err := site.CheckAndPermitClient(client)
 		if err != nil {
 			return newError(http.StatusInternalServerError, err, " can't jude permit access")
 		}
 		if ok {
 			return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 		}
-	}
-
-	cp := int64(0)
-	if client.SerialNumber != 0 {
-		lcp, err := site.CurrentPermitedNumber(true)
-		if err != nil {
-			return newError(http.StatusInternalServerError, err, "can't get current no")
-		}
-		cp = lcp
 	}
 
 	remainingWaitSecond := int64(0)

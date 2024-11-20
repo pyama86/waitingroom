@@ -915,7 +915,7 @@ func TestSite_permitClient(t *testing.T) {
 				tt.beforeHook(tt.client, s, redisClient)
 			}
 
-			got, err := s.PermitClient(tt.client)
+			got, err := s.CheckAndPermitClient(tt.client)
 			if got != tt.want {
 				t.Errorf("Site.permitClient() = %v, want %v", got, tt.want)
 			}
