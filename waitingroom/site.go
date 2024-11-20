@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/nlopes/slack"
 )
@@ -357,4 +358,27 @@ func (s *Site) CheckAndPermitClient(c *Client) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (s *Site) AssignSerialNumber(c *Client) (int64, error) {
+	if c.SerialNumber != 0 && c.ID != "" {
+		return c.SerialNumber, nil
+	}
+
+	if c.ID == "" {
+		u, err := uuid.NewRandom()
+		if err != nil {
+			return 0, err
+		}
+		c.ID = u.String()
+		c.TakeSerialNumberTime = time.Now().Unix() + s.config.EntryDelaySec
+		c.SerialNumber = 0
+	} else if c.canTakeSerialNumber() {
+		currentNo, err := s.IncrCurrentNumber()
+		if err != nil {
+			return 0, err
+		}
+		c.SerialNumber = currentNo
+	}
+	return c.SerialNumber, nil
 }

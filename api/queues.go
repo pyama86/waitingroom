@@ -165,22 +165,40 @@ type QueueResult struct {
 }
 
 func (p *queueHandler) Check(c echo.Context) error {
-	client, err := waitingroom.NewClientByContext(c, p.sc)
-	if err != nil {
-		return newError(http.StatusInternalServerError, err, " can't build info")
-	}
+
 	site := waitingroom.NewSite(c.Request().Context(), c.Param(paramDomainKey), p.config, p.redisClient, p.cache)
-	c.Logger().Debugf("domain %s request client info: %#v", site.Domain, client)
+
+	// 歴史的な経緯でGETでwaitingroomを有効にしているが、POSTで有効にするべき
+	if c.Param("enable") != "" {
+		if err := site.EnableQueue(); err != nil {
+			return newError(http.StatusInternalServerError, err, " can't enable queue")
+		}
+	} else {
+		ok, err := site.IsEnabledQueue(true)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, " can't get enable status")
+		}
+
+		if !ok {
+			return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+		}
+
+	}
+
+	// ホワイトリストに含まれているドメインか、許可済みクライアントならば即時許可応答する
 	ok, err := site.IsInWhitelist()
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get whitelist")
 	}
-
 	if ok {
-		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
+		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+	}
+
+	client, err := waitingroom.NewClientByContext(c, p.sc)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't build info")
 	}
 	ok, err = site.IsPermittedClient(client)
-
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get permit status")
 	}
@@ -189,23 +207,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 	}
 
-	if c.Param("enable") != "" {
-		if err := site.EnableQueue(); err != nil {
-			return newError(http.StatusInternalServerError, err, " can't enable queue")
-		}
-	} else {
-		ok, err = site.IsEnabledQueue(true)
-		if err != nil {
-			return newError(http.StatusInternalServerError, err, " can't get enable status")
-		}
-
-		if !ok {
-			return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
-		}
-
-	}
-
-	clientSerialNumber, err := client.FillSerialNumber(site)
+	clientSerialNumber, err := site.AssignSerialNumber(client)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get serial no")
 	}

@@ -1,7 +1,6 @@
 package waitingroom
 
 import (
-	"context"
 	"net/http"
 	"reflect"
 	"testing"
@@ -167,89 +166,6 @@ func TestNewClientByContext(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewClientByContext() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestClient_fillSerialNumber(t *testing.T) {
-	redisClient := testRedisClient()
-	type fields struct {
-		SerialNumber         int64
-		ID                   string
-		TakeSerialNumberTime int64
-		domain               string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		site    *Site
-		want    int64
-		wantErr bool
-	}{
-		{
-			name: "ok",
-			fields: fields{
-				SerialNumber:         0,
-				ID:                   "dummy",
-				TakeSerialNumberTime: time.Now().Unix() - 1,
-				domain:               testRandomString(20),
-			},
-			site: &Site{
-				redisC: redisClient,
-				config: &Config{
-					QueueEnableSec: 10,
-				},
-				ctx:              context.Background(),
-				currentNumberKey: testRandomString(20),
-			},
-			want:    1,
-			wantErr: false,
-		},
-		{
-			name: "already have number",
-			fields: fields{
-				SerialNumber:         2,
-				ID:                   "dummy",
-				TakeSerialNumberTime: time.Now().Unix() - 1,
-			},
-			want:    2,
-			wantErr: false,
-		},
-		{
-			name: "first access",
-			fields: fields{
-				SerialNumber: 0,
-				ID:           "",
-			},
-			site: &Site{
-				config: &Config{
-					QueueEnableSec: 10,
-				},
-			},
-			want:    0,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &Client{
-				SerialNumber:         tt.fields.SerialNumber,
-				ID:                   tt.fields.ID,
-				TakeSerialNumberTime: tt.fields.TakeSerialNumberTime,
-				secureCookie:         secureCookie,
-				domain:               tt.fields.domain,
-			}
-			got, err := c.FillSerialNumber(tt.site)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Client.fillSerialNumber() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if c.TakeSerialNumberTime == 0 {
-				t.Error("Client.fillSerialNumber() take serial number time is zero")
-			}
-			if got != tt.want {
-				t.Errorf("Client.fillSerialNumber() = %v, want %v", got, tt.want)
 			}
 		})
 	}

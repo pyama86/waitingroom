@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
 )
@@ -54,29 +53,6 @@ func NewClientByContext(ctx echo.Context, sc *securecookie.SecureCookie) (*Clien
 
 func (c *Client) canTakeSerialNumber() bool {
 	return c.ID != "" && c.SerialNumber == 0 && c.TakeSerialNumberTime > 0 && c.TakeSerialNumberTime < time.Now().Unix()
-}
-
-func (c *Client) FillSerialNumber(site *Site) (int64, error) {
-	if c.SerialNumber != 0 && c.ID != "" {
-		return c.SerialNumber, nil
-	}
-
-	if c.ID == "" {
-		u, err := uuid.NewRandom()
-		if err != nil {
-			return 0, err
-		}
-		c.ID = u.String()
-		c.TakeSerialNumberTime = time.Now().Unix() + site.config.EntryDelaySec
-		c.SerialNumber = 0
-	} else if c.canTakeSerialNumber() {
-		currentNo, err := site.IncrCurrentNumber()
-		if err != nil {
-			return 0, err
-		}
-		c.SerialNumber = currentNo
-	}
-	return c.SerialNumber, nil
 }
 
 func (c *Client) SaveToCookie(ctx echo.Context, config *Config) error {
