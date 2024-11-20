@@ -185,7 +185,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 
 	}
 
-	// ホワイトリストに含まれているドメインか、許可済みクライアントならば即時許可応答する
+	// ホワイトリストに含まれているドメインならば即時許可応答する
 	ok, err := site.IsInWhitelist()
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get whitelist")
@@ -194,6 +194,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
 	}
 
+	// 許可済みクライアントかどうかを判定する
 	client, err := waitingroom.NewClientByContext(c, p.sc)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't build info")
@@ -216,14 +217,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return newError(http.StatusInternalServerError, err, "can't save client info")
 	}
 
-	cp := int64(0)
 	if clientSerialNumber != 0 {
-		lcp, err := site.CurrentPermitedNumber(true)
-		if err != nil {
-			return newError(http.StatusInternalServerError, err, "can't get current no")
-		}
-		cp = lcp
-
 		ok, err := site.CheckAndPermitClient(client)
 		if err != nil {
 			return newError(http.StatusInternalServerError, err, " can't jude permit access")
@@ -233,21 +227,16 @@ func (p *queueHandler) Check(c echo.Context) error {
 		}
 	}
 
-	remainingWaitSecond := int64(0)
-	waitDiff := client.SerialNumber - cp
-	if waitDiff > 0 {
-		if waitDiff%p.config.PermitUnitNumber == 0 {
-			remainingWaitSecond = waitDiff / p.config.PermitUnitNumber * int64(p.config.PermitIntervalSec)
-		} else {
-			remainingWaitSecond = (waitDiff/p.config.PermitUnitNumber + 1) * int64(p.config.PermitIntervalSec)
-		}
+	remaningWaitSecond, pn, err := site.CalcRemainingWaitSecond(client)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't calc remaining wait second")
 	}
 	return c.JSON(http.StatusTooManyRequests, QueueResult{
 		ID:                  client.ID,
 		Enabled:             true,
 		PermittedClient:     false,
 		SerialNo:            client.SerialNumber,
-		PermittedNo:         cp,
-		RemainingWaitSecond: remainingWaitSecond,
+		PermittedNo:         pn,
+		RemainingWaitSecond: remaningWaitSecond,
 	})
 }

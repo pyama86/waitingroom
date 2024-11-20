@@ -382,3 +382,25 @@ func (s *Site) AssignSerialNumber(c *Client) (int64, error) {
 	}
 	return c.SerialNumber, nil
 }
+
+func (s *Site) CalcRemainingWaitSecond(c *Client) (int64, int64, error) {
+	remainingWaitSecond := int64(0)
+	cp, err := s.CurrentPermitedNumber(true)
+	if err != nil {
+		fmt.Println(err)
+		if err == redis.Nil {
+			return 0, 0, nil
+		}
+		return 0, 0, err
+	}
+	waitDiff := c.SerialNumber - cp
+	if waitDiff > 0 {
+		if waitDiff%s.config.PermitUnitNumber == 0 {
+			remainingWaitSecond = waitDiff / s.config.PermitUnitNumber * int64(s.config.PermitIntervalSec)
+		} else {
+			remainingWaitSecond = (waitDiff/s.config.PermitUnitNumber + 1) * int64(s.config.PermitIntervalSec)
+		}
+	}
+	return remainingWaitSecond, cp, nil
+
+}

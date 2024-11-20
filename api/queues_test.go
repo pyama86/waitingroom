@@ -49,7 +49,7 @@ func TestQueues_Check(t *testing.T) {
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
 				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 0, 10*time.Second)
 			},
 			expect: func(t *testing.T, c *waitingroom.Client, r *redis.Client) {
 				if c.ID == "" {
