@@ -135,7 +135,7 @@ func NewWhiteListHandler(redisC *redis.Client) *whiteListHandler {
 	}
 }
 
-func WhiteListEndpoints(g *echo.Group, redisC *redis.Client) {
+func VironWhiteListEndpoints(g *echo.Group, redisC *redis.Client) {
 	h := NewWhiteListHandler(redisC)
 	g.GET("/whitelist", h.getWhiteList)
 	g.DELETE("/whitelist/:domain", h.deleteWhiteListByName)

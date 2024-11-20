@@ -10,6 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+const paramDomainKey = "domain"
+
 type Client struct {
 	SerialNumber         int64  // 通し番号
 	ID                   string // ユーザー固有ID
@@ -18,10 +20,10 @@ type Client struct {
 	domain               string
 }
 
-const clientCookieKey = "waiting-room"
+const ClientCookieKey = "waiting-room"
 
 func NewClientByContext(ctx echo.Context, sc *securecookie.SecureCookie) (*Client, error) {
-	cookie, err := ctx.Cookie(clientCookieKey)
+	cookie, err := ctx.Cookie(ClientCookieKey)
 	if err != nil {
 		if err != http.ErrNoCookie {
 			return nil, err
@@ -30,11 +32,11 @@ func NewClientByContext(ctx echo.Context, sc *securecookie.SecureCookie) (*Clien
 
 	client := Client{}
 	if cookie != nil {
-		if err = sc.Decode(clientCookieKey,
+		if err = sc.Decode(ClientCookieKey,
 			cookie.Value,
 			&client); err != nil {
 			ctx.SetCookie(&http.Cookie{
-				Name:     clientCookieKey,
+				Name:     ClientCookieKey,
 				MaxAge:   -1,
 				Domain:   ctx.Param(paramDomainKey),
 				Path:     "/",
@@ -54,7 +56,7 @@ func (c *Client) canTakeSerialNumber() bool {
 	return c.ID != "" && c.SerialNumber == 0 && c.TakeSerialNumberTime > 0 && c.TakeSerialNumberTime < time.Now().Unix()
 }
 
-func (c *Client) fillSerialNumber(site *Site) (int64, error) {
+func (c *Client) FillSerialNumber(site *Site) (int64, error) {
 	if c.SerialNumber != 0 && c.ID != "" {
 		return c.SerialNumber, nil
 	}
@@ -68,7 +70,7 @@ func (c *Client) fillSerialNumber(site *Site) (int64, error) {
 		c.TakeSerialNumberTime = time.Now().Unix() + site.config.EntryDelaySec
 		c.SerialNumber = 0
 	} else if c.canTakeSerialNumber() {
-		currentNo, err := site.incrCurrentNumber()
+		currentNo, err := site.IncrCurrentNumber()
 		if err != nil {
 			return 0, err
 		}
@@ -77,14 +79,14 @@ func (c *Client) fillSerialNumber(site *Site) (int64, error) {
 	return c.SerialNumber, nil
 }
 
-func (c *Client) saveToCookie(ctx echo.Context, config *Config) error {
-	encoded, err := c.secureCookie.Encode(clientCookieKey, c)
+func (c *Client) SaveToCookie(ctx echo.Context, config *Config) error {
+	encoded, err := c.secureCookie.Encode(ClientCookieKey, c)
 	if err != nil {
 		return err
 	}
 
 	ctx.SetCookie(&http.Cookie{
-		Name:     clientCookieKey,
+		Name:     ClientCookieKey,
 		Value:    encoded,
 		MaxAge:   config.PermittedAccessSec,
 		Domain:   c.domain,

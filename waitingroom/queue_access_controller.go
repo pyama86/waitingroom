@@ -39,7 +39,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 		site := NewSite(ctx, m, a.config, a.redisClient, a.cache)
 		site.flushCache()
 
-		ok, err := site.isEnabledQueue(false)
+		ok, err := site.IsEnabledQueue(false)
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func (a *AccessController) Do(ctx context.Context, e *echo.Echo) error {
 			continue
 		}
 
-		if err := site.appendPermitNumberIfGetLock(e); err != nil {
+		if err := site.AppendPermitNumberIfGetLock(e); err != nil {
 			return err
 		}
 

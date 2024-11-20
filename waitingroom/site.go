@@ -14,7 +14,7 @@ import (
 )
 
 type Site struct {
-	domain                       string
+	Domain                       string
 	ctx                          context.Context
 	redisC                       *redis.Client
 	cache                        *Cache
@@ -40,7 +40,7 @@ const SuffixCacheEnable = "_enable_cache"
 
 func NewSite(c context.Context, domain string, config *Config, r *redis.Client, cache *Cache) *Site {
 	return &Site{
-		domain:                       domain,
+		Domain:                       domain,
 		ctx:                          c,
 		redisC:                       r,
 		cache:                        cache,
@@ -53,8 +53,8 @@ func NewSite(c context.Context, domain string, config *Config, r *redis.Client, 
 	}
 }
 
-func (s *Site) appendPermitNumber(e *echo.Echo) error {
-	an, err := s.currentPermitedNumber(false)
+func (s *Site) AppendPermitNumber(e *echo.Echo) error {
+	an, err := s.CurrentPermitedNumber(false)
 	if err != nil {
 		if err != redis.Nil {
 			return fmt.Errorf("append permit number get current permitted failed: %s", err)
@@ -86,14 +86,14 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	if ln == cn && cn <= an {
 		slog.Info(
 			"reset waitingroom",
-			slog.String("domain", s.domain),
+			slog.String("domain", s.Domain),
 			slog.Int("current", int(cn)),
 			slog.Int("permit", int(an)),
 			slog.Int("lastNumber", int(ln)),
 			slog.String("ttl", ttl.String()),
 		)
 
-		err = s.notifySlackWithPermittedStatus(e, "Reset WaitingRoom", ttl, an, cn)
+		err = s.NotifySlackWithPermittedStatus(e, "Reset WaitingRoom", ttl, an, cn)
 		if err != nil {
 			slog.Error(fmt.Sprintf("failed to notify slack: %s", err))
 		}
@@ -129,22 +129,22 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	_, err = pipe.Exec(s.ctx)
 
 	if err != nil && err != redis.Nil {
-		return fmt.Errorf("domain: %s current: %d ttl: %d permit: %d, err: %s", s.domain, cn, an, ttl/time.Second, err)
+		return fmt.Errorf("domain: %s current: %d ttl: %d permit: %d, err: %s", s.Domain, cn, an, ttl/time.Second, err)
 	}
 
 	slog.Info(
 		"append permit number",
-		slog.String("domain", s.domain),
+		slog.String("domain", s.Domain),
 		slog.Int("current", int(cn)),
 		slog.Int("permit", int(an)),
 		slog.String("ttl", ttl.String()),
 	)
 
-	err = s.notifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
+	err = s.NotifySlackWithPermittedStatus(e, "WaitingRoom Additional access granted", ttl, an, cn)
 	if err != nil {
 		slog.Error(
 			"failed to notify slack",
-			slog.String("domain", s.domain),
+			slog.String("domain", s.Domain),
 			slog.String("error", err.Error()),
 		)
 	}
@@ -152,12 +152,12 @@ func (s *Site) appendPermitNumber(e *echo.Echo) error {
 	return nil
 }
 
-func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl time.Duration, permittedNumber, currentNumber int64) error {
+func (s *Site) NotifySlackWithPermittedStatus(e *echo.Echo, message string, ttl time.Duration, permittedNumber, currentNumber int64) error {
 
 	if currentNumber < 5 {
 		slog.Info(
 			"skip notify slack",
-			slog.String("domain", s.domain),
+			slog.String("domain", s.Domain),
 			slog.Int64("current", currentNumber),
 			slog.Int64("permit", permittedNumber),
 			slog.String("ttl", ttl.String()),
@@ -171,7 +171,7 @@ func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl 
 			slack.NewSectionBlock(
 				&slack.TextBlockObject{Type: "mrkdwn", Text: fmt.Sprintf("*%s*", message)},
 				[]*slack.TextBlockObject{
-					{Type: "plain_text", Text: fmt.Sprintf("Domain: %s", s.domain)},
+					{Type: "plain_text", Text: fmt.Sprintf("Domain: %s", s.Domain)},
 					{Type: "plain_text", Text: fmt.Sprintf("CurrentClient: %d", currentNumber)},
 					{Type: "plain_text", Text: fmt.Sprintf("PermittedNumber: %d", permittedNumber)},
 					{Type: "plain_text", Text: fmt.Sprintf("TTL: %d", ttl/time.Second)},
@@ -186,7 +186,7 @@ func (s *Site) notifySlackWithPermittedStatus(e *echo.Echo, message string, ttl 
 	}
 	return nil
 }
-func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
+func (s *Site) AppendPermitNumberIfGetLock(e *echo.Echo) error {
 	// 古いサーバだとSetNXにTTLを渡せない
 	ok, err := s.redisC.SetNX(s.ctx, s.appendPermittedNumberLockKey, "1", 0).Result()
 	if err != nil {
@@ -196,19 +196,19 @@ func (s *Site) appendPermitNumberIfGetLock(e *echo.Echo) error {
 	if ok {
 		slog.Info(
 			"got lock",
-			slog.String("domain", s.domain),
+			slog.String("domain", s.Domain),
 		)
 		err = s.redisC.Expire(s.ctx, s.appendPermittedNumberLockKey, time.Duration(s.config.PermitIntervalSec)*time.Second).Err()
 		if err != nil {
-			return fmt.Errorf("failed to set expire %s:%v", s.domain, err)
+			return fmt.Errorf("failed to set expire %s:%v", s.Domain, err)
 		}
 
-		if err := s.appendPermitNumber(e); err != nil {
+		if err := s.AppendPermitNumber(e); err != nil {
 			if errors.Is(err, ErrClientNotIncrese) {
-				slog.Info("client not increase", slog.String("domain", s.domain))
+				slog.Info("client not increase", slog.String("domain", s.Domain))
 				return nil
 			}
-			return fmt.Errorf("failed to append permit number %s:%v", s.domain, err)
+			return fmt.Errorf("failed to append permit number %s:%v", s.Domain, err)
 		}
 	}
 	return nil
@@ -222,7 +222,7 @@ func (s *Site) flushCache() {
 func (s *Site) Reset() error {
 	defer s.flushCache()
 	pipe := s.redisC.Pipeline()
-	pipe.ZRem(s.ctx, EnableDomainKey, s.domain)
+	pipe.ZRem(s.ctx, EnableDomainKey, s.Domain)
 	pipe.Del(s.ctx, s.currentNumberKey, s.permittedNumberKey, s.appendPermittedNumberLockKey, s.lastNumberKey)
 	_, err := pipe.Exec(s.ctx)
 	if err != nil && err != redis.Nil {
@@ -231,17 +231,17 @@ func (s *Site) Reset() error {
 	return nil
 }
 
-func (s *Site) isInWhitelist() (bool, error) {
-	val, err := s.cache.ZScanAndFetchIfExpired(s.ctx, WhiteListKey, s.domain)
+func (s *Site) IsInWhitelist() (bool, error) {
+	val, err := s.cache.ZScanAndFetchIfExpired(s.ctx, WhiteListKey, s.Domain)
 	if len(val) != 0 {
 		return true, nil
 	}
 	return false, err
 }
 
-func (s *Site) isEnabledQueue(cache bool) (bool, error) {
+func (s *Site) IsEnabledQueue(cache bool) (bool, error) {
 	if cache {
-		v, err := s.currentPermitedNumber(true)
+		v, err := s.CurrentPermitedNumber(true)
 		if err != nil && err == redis.Nil {
 			return false, nil
 		}
@@ -268,7 +268,7 @@ func (s *Site) EnableQueue() error {
 		pipe.Expire(s.ctx, s.permittedNumberKey, time.Duration(s.config.QueueEnableSec)*time.Second)
 		pipe.ZAdd(s.ctx, EnableDomainKey, &redis.Z{
 			Score:  1,
-			Member: s.domain,
+			Member: s.Domain,
 		})
 		pipe.Expire(s.ctx, EnableDomainKey, time.Duration(s.config.QueueEnableSec*2)*time.Second)
 		_, err := pipe.Exec(s.ctx)
@@ -278,12 +278,12 @@ func (s *Site) EnableQueue() error {
 		s.flushCache()
 		// 大量に更新するとパフォーマンスが落ちるので、TTLの半分の時間は何もしない
 		s.cache.Set(s.cacheEnableKey, "1", time.Duration(s.config.QueueEnableSec/2)*time.Second)
-		slog.Info("EnableQueue", slog.String("enable queue", s.domain))
+		slog.Info("EnableQueue", slog.String("enable queue", s.Domain))
 	}
 	return nil
 }
 
-func (s *Site) isPermittedClient(client *Client) (bool, error) {
+func (s *Site) IsPermittedClient(client *Client) (bool, error) {
 	// 許可済みのコネクション
 	if client.ID != "" {
 		v, err := s.cache.GetAndFetchIfExpired(s.ctx, client.ID)
@@ -299,7 +299,7 @@ func (s *Site) isPermittedClient(client *Client) (bool, error) {
 	return false, nil
 }
 
-func (s *Site) incrCurrentNumber() (int64, error) {
+func (s *Site) IncrCurrentNumber() (int64, error) {
 	pipe := s.redisC.Pipeline()
 	incr := pipe.Incr(s.ctx, s.currentNumberKey)
 	pipe.Expire(s.ctx,
@@ -310,7 +310,7 @@ func (s *Site) incrCurrentNumber() (int64, error) {
 	return incr.Val(), nil
 }
 
-func (s *Site) currentPermitedNumber(useCache bool) (int64, error) {
+func (s *Site) CurrentPermitedNumber(useCache bool) (int64, error) {
 	// 現在許可されている通り番号
 	if useCache {
 		v, err := s.cache.GetAndFetchIfExpired(s.ctx, s.permittedNumberKey)
@@ -334,8 +334,8 @@ func (s *Site) currentPermitedNumber(useCache bool) (int64, error) {
 	return v, nil
 }
 
-func (s *Site) permitClient(c *Client) (bool, error) {
-	an, err := s.currentPermitedNumber(true)
+func (s *Site) PermitClient(c *Client) (bool, error) {
+	an, err := s.CurrentPermitedNumber(true)
 	if err != nil {
 		if err == redis.Nil {
 			return true, nil

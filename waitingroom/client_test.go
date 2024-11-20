@@ -143,13 +143,13 @@ func TestNewClientByContext(t *testing.T) {
 			if tt.secureCookie == nil {
 				tt.secureCookie = secureCookie
 			}
-			encoded, err := tt.secureCookie.Encode(clientCookieKey, tt.cookieClient)
+			encoded, err := tt.secureCookie.Encode(ClientCookieKey, tt.cookieClient)
 			if err != nil {
 				panic(err)
 			}
 
 			ctx.Request().AddCookie(&http.Cookie{
-				Name:     clientCookieKey,
+				Name:     ClientCookieKey,
 				Value:    encoded,
 				MaxAge:   10,
 				Domain:   tt.domain,
@@ -240,7 +240,7 @@ func TestClient_fillSerialNumber(t *testing.T) {
 				secureCookie:         secureCookie,
 				domain:               tt.fields.domain,
 			}
-			got, err := c.fillSerialNumber(tt.site)
+			got, err := c.FillSerialNumber(tt.site)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Client.fillSerialNumber() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -303,14 +303,14 @@ func TestClient_saveToCookie(t *testing.T) {
 				domain:               tt.fields.domain,
 			}
 			ctx, rec := testContext("/", http.MethodPost, map[string]string{})
-			if err := c.saveToCookie(ctx, tt.config); (err != nil) != tt.wantErr {
+			if err := c.SaveToCookie(ctx, tt.config); (err != nil) != tt.wantErr {
 				t.Errorf("Client.saveToCookie() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			parser := &http.Request{Header: http.Header{"Cookie": rec.Header()["Set-Cookie"]}}
-			cookie, _ := parser.Cookie(clientCookieKey)
+			cookie, _ := parser.Cookie(ClientCookieKey)
 			got := Client{}
-			secureCookie.Decode(clientCookieKey,
+			secureCookie.Decode(ClientCookieKey,
 				cookie.Value,
 				&got)
 

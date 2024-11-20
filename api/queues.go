@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
 	"github.com/pyama86/ngx_waitingroom/model"
 	"github.com/pyama86/ngx_waitingroom/waitingroom"
@@ -32,7 +33,7 @@ type HTTPError struct {
 // @Failure 500 {object} api.HTTPError
 // @Router /queues [get]
 // @Tags queues
-func (h *queueHandler) getQueues(c echo.Context) error {
+func (h *queueHandler) GetQueues(c echo.Context) error {
 	page, perPage, err := paginate(c)
 	if err != nil {
 		slog.Error("pagenate error", slog.Any("error", err))
@@ -65,7 +66,7 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 // @Failure 500 {object} api.HTTPError
 // @Router /queues/{domain} [put]
 // @Tags queues
-func (h *queueHandler) updateQueueByName(c echo.Context) error {
+func (h *queueHandler) UpdateQueueByName(c echo.Context) error {
 	q := &model.Queue{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
@@ -93,7 +94,7 @@ func (h *queueHandler) updateQueueByName(c echo.Context) error {
 // @Failure 500 {object} api.HTTPError
 // @Router /queues/{domain} [delete]
 // @Tags queues
-func (h *queueHandler) deleteQueueByName(c echo.Context) error {
+func (h *queueHandler) DeleteQueueByName(c echo.Context) error {
 	if err := h.queueModel.DeleteQueues(c.Request().Context(), c.Param("domain")); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -114,7 +115,7 @@ func (h *queueHandler) deleteQueueByName(c echo.Context) error {
 // @Failure 500 {object} api.HTTPError
 // @Router /queues [post]
 // @Tags queues
-func (h *queueHandler) createQueue(c echo.Context) error {
+func (h *queueHandler) CreateQueue(c echo.Context) error {
 	q := &model.Queue{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
@@ -130,18 +131,123 @@ func (h *queueHandler) createQueue(c echo.Context) error {
 }
 
 type queueHandler struct {
-	queueModel *model.QueueModel
+	queueModel  *model.QueueModel
+	sc          *securecookie.SecureCookie
+	cache       *waitingroom.Cache
+	redisClient *redis.Client
+	config      *waitingroom.Config
 }
 
-func NewQueueHandler(redisC *redis.Client, config *waitingroom.Config, cache *waitingroom.Cache) *queueHandler {
+func NewQueueHandler(
+	sc *securecookie.SecureCookie,
+	redisC *redis.Client,
+	config *waitingroom.Config,
+	cache *waitingroom.Cache,
+) *queueHandler {
 	return &queueHandler{
-		queueModel: model.NewQueueModel(redisC, config, cache),
+		sc:          sc,
+		queueModel:  model.NewQueueModel(redisC, config, cache),
+		redisClient: redisC,
+		config:      config,
+		cache:       cache,
 	}
 }
-func QueuesEndpoints(g *echo.Group, redisC *redis.Client, config *waitingroom.Config, cache *waitingroom.Cache) {
-	h := NewQueueHandler(redisC, config, cache)
-	g.GET("/queues", h.getQueues)
-	g.PUT("/queues/:domain", h.updateQueueByName)
-	g.DELETE("/queues/:domain", h.deleteQueueByName)
-	g.POST("/queues", h.createQueue)
+
+const paramDomainKey = "domain"
+
+type QueueResult struct {
+	ID                  string
+	Enabled             bool  `json:"enabled"`
+	PermittedClient     bool  `json:"permitted_client"`
+	SerialNo            int64 `json:"serial_no"`
+	PermittedNo         int64 `json:"permitted_no"`
+	RemainingWaitSecond int64 `json:"remaining_wait_second"`
+}
+
+func (p *queueHandler) Check(c echo.Context) error {
+	client, err := waitingroom.NewClientByContext(c, p.sc)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't build info")
+	}
+	site := waitingroom.NewSite(c.Request().Context(), c.Param(paramDomainKey), p.config, p.redisClient, p.cache)
+	c.Logger().Debugf("domain %s request client info: %#v", site.Domain, client)
+	ok, err := site.IsInWhitelist()
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't get whitelist")
+	}
+
+	if ok {
+		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
+	}
+	ok, err = site.IsPermittedClient(client)
+
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't get permit status")
+	}
+
+	if ok {
+		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
+	}
+
+	if c.Param("enable") != "" {
+		if err := site.EnableQueue(); err != nil {
+			return newError(http.StatusInternalServerError, err, " can't enable queue")
+		}
+	} else {
+		ok, err = site.IsEnabledQueue(true)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, " can't get enable status")
+		}
+
+		if !ok {
+			return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: false, PermittedClient: false})
+		}
+
+	}
+
+	clientSerialNumber, err := client.FillSerialNumber(site)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't get serial no")
+	}
+
+	if err := client.SaveToCookie(c, p.config); err != nil {
+		return newError(http.StatusInternalServerError, err, "can't save client info")
+	}
+
+	if clientSerialNumber != 0 {
+		ok, err := site.PermitClient(client)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, " can't jude permit access")
+		}
+		if ok {
+			return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
+		}
+	}
+
+	cp := int64(0)
+	if client.SerialNumber != 0 {
+		lcp, err := site.CurrentPermitedNumber(true)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, "can't get current no")
+		}
+		cp = lcp
+	}
+
+	remainingWaitSecond := int64(0)
+	waitDiff := client.SerialNumber - cp
+	if waitDiff > 0 {
+		if waitDiff%p.config.PermitUnitNumber == 0 {
+			remainingWaitSecond = waitDiff / p.config.PermitUnitNumber * int64(p.config.PermitIntervalSec)
+		} else {
+			remainingWaitSecond = (waitDiff/p.config.PermitUnitNumber + 1) * int64(p.config.PermitIntervalSec)
+		}
+	}
+	return c.JSON(http.StatusTooManyRequests, QueueResult{
+		ID:                  client.ID,
+		Enabled:             true,
+		PermittedClient:     false,
+		SerialNo:            client.SerialNumber,
+		PermittedNo:         cp,
+		RemainingWaitSecond: remainingWaitSecond,
+	})
 }
