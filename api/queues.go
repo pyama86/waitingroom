@@ -8,8 +8,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
-	"github.com/pyama86/ngx_waitingroom/model"
-	"github.com/pyama86/ngx_waitingroom/waitingroom"
+	"github.com/pyama86/waitingroom/waitingroom"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -28,8 +27,8 @@ type HTTPError struct {
 // @Param domain query string false "Queue Domain"
 // @Param page query int false "page" minimum(1)
 // @Param per_page query int false "per_page" minimum(1)
-// @Success 200 {array} model.Queue
-// @Failure 404 {array} model.Queue
+// @Success 200 {array} waitingroom.Queue
+// @Failure 404 {array} waitingroom.Queue
 // @Failure 500 {object} api.HTTPError
 // @Router /queues [get]
 // @Tags queues
@@ -59,7 +58,7 @@ func (h *queueHandler) GetQueues(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Param domain path string true "Queue Name"
-// @Param queue body model.Queue true "Queue Object"
+// @Param queue body waitingroom.Queue true "Queue Object"
 // @Success 200 "OK"
 // @Failure 403 {object} api.HTTPError
 // @Failure 404 {object} api.HTTPError
@@ -67,7 +66,7 @@ func (h *queueHandler) GetQueues(c echo.Context) error {
 // @Router /queues/{domain} [put]
 // @Tags queues
 func (h *queueHandler) UpdateQueueByName(c echo.Context) error {
-	q := &model.Queue{}
+	q := &waitingroom.Queue{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -108,7 +107,7 @@ func (h *queueHandler) DeleteQueueByName(c echo.Context) error {
 // @ID queues#post
 // @Accept  json
 // @Produce  json
-// @Param queue body model.Queue true "Queue Object"
+// @Param queue body waitingroom.Queue true "Queue Object"
 // @Success 201 "Created"
 // @Failure 403 {object} api.HTTPError
 // @Failure 404 {object} api.HTTPError
@@ -116,7 +115,7 @@ func (h *queueHandler) DeleteQueueByName(c echo.Context) error {
 // @Router /queues [post]
 // @Tags queues
 func (h *queueHandler) CreateQueue(c echo.Context) error {
-	q := &model.Queue{}
+	q := &waitingroom.Queue{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -131,7 +130,7 @@ func (h *queueHandler) CreateQueue(c echo.Context) error {
 }
 
 type queueHandler struct {
-	queueModel  *model.QueueModel
+	queueModel  *waitingroom.QueueModel
 	sc          *securecookie.SecureCookie
 	cache       *waitingroom.Cache
 	redisClient *redis.Client
@@ -146,7 +145,7 @@ func NewQueueHandler(
 ) *queueHandler {
 	return &queueHandler{
 		sc:          sc,
-		queueModel:  model.NewQueueModel(redisC, config, cache),
+		queueModel:  waitingroom.NewQueueModel(redisC, config, cache),
 		redisClient: redisC,
 		config:      config,
 		cache:       cache,

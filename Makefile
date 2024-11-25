@@ -15,6 +15,7 @@ ci: lint test
 
 lint: devdeps
 	@staticcheck ./...
+	@gosec -conf gosec.json ./...
 
 .PHONY: viron
 viron:
@@ -24,6 +25,7 @@ viron:
 devdeps:
 	@which staticcheck > /dev/null || go install honnef.co/go/tools/cmd/staticcheck@latest
 	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@latest
+	@which gosec > /dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 swag:
 	swag i

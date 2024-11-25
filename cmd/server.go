@@ -38,9 +38,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
-	"github.com/pyama86/ngx_waitingroom/api"
-	"github.com/pyama86/ngx_waitingroom/docs"
-	"github.com/pyama86/ngx_waitingroom/waitingroom"
+	"github.com/pyama86/waitingroom/api"
+	"github.com/pyama86/waitingroom/docs"
+	"github.com/pyama86/waitingroom/waitingroom"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -409,7 +409,9 @@ func setupOtelProvider(ctx context.Context, serviceName string, serviceVersion s
 	cleanup := func() {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		// #nosec G104
 		tracerProvider.Shutdown(ctx)
+		// #nosec G104
 		meterProvider.Shutdown(ctx)
 	}
 	return cleanup, nil

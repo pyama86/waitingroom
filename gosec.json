@@ -1,0 +1,8 @@
+{
+    "G104": {
+        "viper": [
+            "BindPFlag",
+            "BindEnv"
+        ]
+    }
+}

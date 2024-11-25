@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
-	"github.com/pyama86/ngx_waitingroom/waitingroom"
+	"github.com/pyama86/waitingroom/waitingroom"
 )
 
 func TestQueues_Check(t *testing.T) {

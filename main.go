@@ -21,13 +21,13 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/pyama86/ngx_waitingroom/cmd"
+import "github.com/pyama86/waitingroom/cmd"
 
 // @title WaitingRoomAPI
 // @version 1.0
 // @description API for WaitingRoom
 // @license.name MIT
-// @license.url http://github.com/pyama86/ngx_waitingroom/LICENSE
+// @license.url http://github.com/pyama86/waitingroom/LICENSE
 // @BasePath /v1
 // @tag.name queues
 // @tag.name whitelist
