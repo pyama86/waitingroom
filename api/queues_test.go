@@ -1,4 +1,4 @@
-package waitingroom
+package api
 
 import (
 	"context"
@@ -9,25 +9,26 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
+	"github.com/pyama86/waitingroom/waitingroom"
 )
 
-func TestQueueConfirmation_Do(t *testing.T) {
+func TestQueues_Check(t *testing.T) {
 	redisClient := testRedisClient()
-	cache := NewCache(redisClient, &Config{})
+	cache := waitingroom.NewCache(redisClient, &waitingroom.Config{})
 	type fields struct {
 		sc          *securecookie.SecureCookie
-		cache       *Cache
+		cache       *waitingroom.Cache
 		redisClient *redis.Client
-		config      *Config
+		config      *waitingroom.Config
 	}
 	tests := []struct {
 		name              string
 		fields            fields
-		client            Client
+		client            waitingroom.Client
 		wantErr           bool
 		wantStatus        int
 		beforeHook        func(string, *redis.Client)
-		expect            func(*testing.T, *Client, *redis.Client)
+		expect            func(*testing.T, *waitingroom.Client, *redis.Client)
 		expectQueueResult QueueResult
 	}{
 		{
@@ -36,26 +37,26 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				sc:          secureCookie,
 				redisClient: redisClient,
 				cache:       cache,
-				config: &Config{
+				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
 					PermitUnitNumber:   10,
 					PermitIntervalSec:  10,
 				},
 			},
-			client:     Client{},
+			client:     waitingroom.Client{},
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 0, 10*time.Second)
 			},
-			expect: func(t *testing.T, c *Client, r *redis.Client) {
+			expect: func(t *testing.T, c *waitingroom.Client, r *redis.Client) {
 				if c.ID == "" {
-					t.Errorf("TestQueueConfirmation_Do Client ID is not allow null ID")
+					t.Errorf("TestQueuesCheck Client ID is not allow null ID")
 				}
 				if c.TakeSerialNumberTime != time.Now().Unix()+10 {
-					t.Errorf("TestQueueConfirmation_Do miss match c.TakeSerialNumberTime")
+					t.Errorf("TestQueuesCheck miss match c.TakeSerialNumberTime")
 				}
 			},
 			expectQueueResult: QueueResult{
@@ -71,29 +72,29 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				sc:          secureCookie,
 				redisClient: redisClient,
 				cache:       cache,
-				config: &Config{
+				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
 					PermitUnitNumber:   10,
 					PermitIntervalSec:  10,
 				},
 			},
-			client: Client{
+			client: waitingroom.Client{
 				ID:                   testRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 31, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 31, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
 			},
-			expect: func(t *testing.T, c *Client, r *redis.Client) {
+			expect: func(t *testing.T, c *waitingroom.Client, r *redis.Client) {
 				if c.ID == "" {
-					t.Errorf("TestQueueConfirmation_Do Client ID is not allow null ID")
+					t.Errorf("TestQueuesCheck Client ID is not allow null ID")
 				}
 				if c.SerialNumber == 0 {
-					t.Errorf("TestQueueConfirmation_Do miss match c.SerialNumber")
+					t.Errorf("TestQueuesCheck miss match c.SerialNumber")
 				}
 			},
 			expectQueueResult: QueueResult{
@@ -110,14 +111,14 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				sc:          secureCookie,
 				redisClient: redisClient,
 				cache:       cache,
-				config: &Config{
+				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
 					PermitUnitNumber:   10,
 					PermitIntervalSec:  10,
 				},
 			},
-			client:     Client{},
+			client:     waitingroom.Client{},
 			wantErr:    false,
 			wantStatus: http.StatusOK,
 			expectQueueResult: QueueResult{
@@ -133,14 +134,14 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				sc:          secureCookie,
 				redisClient: redisClient,
 				cache:       cache,
-				config: &Config{
+				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
 					PermitUnitNumber:   10,
 					PermitIntervalSec:  10,
 				},
 			},
-			client: Client{
+			client: waitingroom.Client{
 				SerialNumber:         1,
 				ID:                   testRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
@@ -148,8 +149,8 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			wantErr:    false,
 			wantStatus: http.StatusOK,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
 				Enabled:         true,
@@ -164,24 +165,24 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				sc:          secureCookie,
 				redisClient: redisClient,
 				cache:       cache,
-				config: &Config{
+				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
 					PermitUnitNumber:   10,
 					PermitIntervalSec:  10,
 				},
 			},
-			client: Client{
+			client: waitingroom.Client{
 				ID:                   testRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
 			wantStatus: http.StatusOK,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+SuffixPermittedNo, 1, 10*time.Second)
-				redisClient.ZAdd(context.Background(), WhiteListKey, &redis.Z{Member: key, Score: 1})
-				redisClient.Expire(context.Background(), WhiteListKey, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.ZAdd(context.Background(), waitingroom.WhiteListKey, &redis.Z{Member: key, Score: 1})
+				redisClient.Expire(context.Background(), waitingroom.WhiteListKey, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
 				Enabled:         false,
@@ -193,7 +194,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &QueueConfirmation{
+			p := &queueHandler{
 				sc:          tt.fields.sc,
 				cache:       tt.fields.cache,
 				redisClient: tt.fields.redisClient,
@@ -206,13 +207,13 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			c.SetParamNames("domain")
 			c.SetParamValues(domain)
 			defer rec.Result().Body.Close()
-			encoded, err := secureCookie.Encode(clientCookieKey, tt.client)
+			encoded, err := secureCookie.Encode(waitingroom.ClientCookieKey, tt.client)
 			if err != nil {
 				panic(err)
 			}
 
 			c.Request().AddCookie(&http.Cookie{
-				Name:     clientCookieKey,
+				Name:     waitingroom.ClientCookieKey,
 				Value:    encoded,
 				MaxAge:   10,
 				Domain:   domain,
@@ -225,7 +226,7 @@ func TestQueueConfirmation_Do(t *testing.T) {
 				tt.beforeHook(domain, redisClient)
 			}
 
-			if err := p.Do(c); (err != nil) != tt.wantErr {
+			if err := p.Check(c); (err != nil) != tt.wantErr {
 				t.Errorf("QueueConfirmation.Do() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if rec.Code != tt.wantStatus {
@@ -233,9 +234,9 @@ func TestQueueConfirmation_Do(t *testing.T) {
 			}
 			if tt.wantStatus != http.StatusOK {
 				parser := &http.Request{Header: http.Header{"Cookie": rec.Header()["Set-Cookie"]}}
-				cookie, _ := parser.Cookie(clientCookieKey)
-				got := Client{}
-				secureCookie.Decode(clientCookieKey,
+				cookie, _ := parser.Cookie(waitingroom.ClientCookieKey)
+				got := waitingroom.Client{}
+				secureCookie.Decode(waitingroom.ClientCookieKey,
 					cookie.Value,
 					&got)
 

@@ -1,7 +1,6 @@
 package waitingroom
 
 import (
-	"context"
 	"net/http"
 	"reflect"
 	"testing"
@@ -143,13 +142,13 @@ func TestNewClientByContext(t *testing.T) {
 			if tt.secureCookie == nil {
 				tt.secureCookie = secureCookie
 			}
-			encoded, err := tt.secureCookie.Encode(clientCookieKey, tt.cookieClient)
+			encoded, err := tt.secureCookie.Encode(ClientCookieKey, tt.cookieClient)
 			if err != nil {
 				panic(err)
 			}
 
 			ctx.Request().AddCookie(&http.Cookie{
-				Name:     clientCookieKey,
+				Name:     ClientCookieKey,
 				Value:    encoded,
 				MaxAge:   10,
 				Domain:   tt.domain,
@@ -167,89 +166,6 @@ func TestNewClientByContext(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewClientByContext() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestClient_fillSerialNumber(t *testing.T) {
-	redisClient := testRedisClient()
-	type fields struct {
-		SerialNumber         int64
-		ID                   string
-		TakeSerialNumberTime int64
-		domain               string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		site    *Site
-		want    int64
-		wantErr bool
-	}{
-		{
-			name: "ok",
-			fields: fields{
-				SerialNumber:         0,
-				ID:                   "dummy",
-				TakeSerialNumberTime: time.Now().Unix() - 1,
-				domain:               testRandomString(20),
-			},
-			site: &Site{
-				redisC: redisClient,
-				config: &Config{
-					QueueEnableSec: 10,
-				},
-				ctx:              context.Background(),
-				currentNumberKey: testRandomString(20),
-			},
-			want:    1,
-			wantErr: false,
-		},
-		{
-			name: "already have number",
-			fields: fields{
-				SerialNumber:         2,
-				ID:                   "dummy",
-				TakeSerialNumberTime: time.Now().Unix() - 1,
-			},
-			want:    2,
-			wantErr: false,
-		},
-		{
-			name: "first access",
-			fields: fields{
-				SerialNumber: 0,
-				ID:           "",
-			},
-			site: &Site{
-				config: &Config{
-					QueueEnableSec: 10,
-				},
-			},
-			want:    0,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &Client{
-				SerialNumber:         tt.fields.SerialNumber,
-				ID:                   tt.fields.ID,
-				TakeSerialNumberTime: tt.fields.TakeSerialNumberTime,
-				secureCookie:         secureCookie,
-				domain:               tt.fields.domain,
-			}
-			got, err := c.fillSerialNumber(tt.site)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Client.fillSerialNumber() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if c.TakeSerialNumberTime == 0 {
-				t.Error("Client.fillSerialNumber() take serial number time is zero")
-			}
-			if got != tt.want {
-				t.Errorf("Client.fillSerialNumber() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -303,14 +219,14 @@ func TestClient_saveToCookie(t *testing.T) {
 				domain:               tt.fields.domain,
 			}
 			ctx, rec := testContext("/", http.MethodPost, map[string]string{})
-			if err := c.saveToCookie(ctx, tt.config); (err != nil) != tt.wantErr {
+			if err := c.SaveToCookie(ctx, tt.config); (err != nil) != tt.wantErr {
 				t.Errorf("Client.saveToCookie() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			parser := &http.Request{Header: http.Header{"Cookie": rec.Header()["Set-Cookie"]}}
-			cookie, _ := parser.Cookie(clientCookieKey)
+			cookie, _ := parser.Cookie(ClientCookieKey)
 			got := Client{}
-			secureCookie.Decode(clientCookieKey,
+			secureCookie.Decode(ClientCookieKey,
 				cookie.Value,
 				&got)
 

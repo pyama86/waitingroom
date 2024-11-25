@@ -6,7 +6,7 @@
         "contact": {},
         "license": {
             "name": "MIT",
-            "url": "http://github.com/pyama86/ngx_waitingroom/LICENSE"
+            "url": "http://github.com/pyama86/waitingroom/LICENSE"
         },
         "version": "1.0"
     },
@@ -54,7 +54,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/model.Queue"
+                                "$ref": "#/definitions/waitingroom.Queue"
                             }
                         }
                     },
@@ -63,7 +63,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/model.Queue"
+                                "$ref": "#/definitions/waitingroom.Queue"
                             }
                         }
                     },
@@ -95,7 +95,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Queue"
+                            "$ref": "#/definitions/waitingroom.Queue"
                         }
                     }
                 ],
@@ -152,7 +152,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Queue"
+                            "$ref": "#/definitions/waitingroom.Queue"
                         }
                     }
                 ],
@@ -303,7 +303,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/model.WhiteList"
+                                "$ref": "#/definitions/waitingroom.WhiteList"
                             }
                         }
                     },
@@ -312,7 +312,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/model.WhiteList"
+                                "$ref": "#/definitions/waitingroom.WhiteList"
                             }
                         }
                     },
@@ -344,7 +344,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.WhiteList"
+                            "$ref": "#/definitions/waitingroom.WhiteList"
                         }
                     }
                 ],
@@ -429,7 +429,7 @@
                 "message": {}
             }
         },
-        "model.Queue": {
+        "waitingroom.Queue": {
             "type": "object",
             "required": [
                 "domain"
@@ -448,7 +448,7 @@
                 }
             }
         },
-        "model.WhiteList": {
+        "waitingroom.WhiteList": {
             "type": "object",
             "required": [
                 "domain"

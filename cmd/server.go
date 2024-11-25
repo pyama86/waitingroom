@@ -38,9 +38,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
-	"github.com/pyama86/ngx_waitingroom/api"
-	"github.com/pyama86/ngx_waitingroom/docs"
-	"github.com/pyama86/ngx_waitingroom/waitingroom"
+	"github.com/pyama86/waitingroom/api"
+	"github.com/pyama86/waitingroom/docs"
+	"github.com/pyama86/waitingroom/waitingroom"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -207,33 +207,38 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 
 	e.Use(middleware.Recover())
 	cache := waitingroom.NewCache(redisc, config)
-	queueConfirmation := waitingroom.NewQueueConfirmation(
-		secureCookie,
-		config,
-		redisc,
-		cache,
-	)
 
 	e.GET("/status", func(c echo.Context) error {
 		_, err := redisc.Ping(ctx).Result()
 		if err != nil {
-			return waitingroom.NewError(http.StatusInternalServerError, err, "datastore connection error")
+			return c.String(http.StatusInternalServerError, err.Error())
 		}
 		return c.String(http.StatusOK, "ok")
 	},
 	)
-	e.GET("/queues/:domain", queueConfirmation.Do)
-	e.GET("/queues/:domain/:enable", queueConfirmation.Do)
+	h := api.NewQueueHandler(
+		secureCookie,
+		redisc,
+		config,
+		cache,
+	)
+
+	e.GET("/queues/:domain", h.Check)
+	e.GET("/queues/:domain/:enable", h.Check)
 
 	v1 := e.Group("/v1")
 	api.VironEndpoints(v1)
-	api.QueuesEndpoints(v1, redisc, config, cache)
-	api.WhiteListEndpoints(v1, redisc)
+	v1.GET("/queues", h.GetQueues)
+	v1.PUT("/queues/:domain", h.UpdateQueueByName)
+	v1.DELETE("/queues/:domain", h.DeleteQueueByName)
+	v1.POST("/queues", h.CreateQueue)
+
+	api.VironWhiteListEndpoints(v1, redisc)
 
 	docs.SwaggerInfo.Host = config.PublicHost
 	dev, err := cmd.PersistentFlags().GetBool("dev")
 	if err != nil {
-		return waitingroom.NewError(http.StatusInternalServerError, err, "can't parse dev flag")
+		return err
 	}
 
 	if dev {
@@ -404,7 +409,9 @@ func setupOtelProvider(ctx context.Context, serviceName string, serviceVersion s
 	cleanup := func() {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		// #nosec G104
 		tracerProvider.Shutdown(ctx)
+		// #nosec G104
 		meterProvider.Shutdown(ctx)
 	}
 	return cleanup, nil

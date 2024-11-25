@@ -14,7 +14,7 @@ import (
 
 func TestNewSite(t *testing.T) {
 	type args struct {
-		domain string
+		Domain string
 		config *Config
 	}
 	tests := []struct {
@@ -25,11 +25,11 @@ func TestNewSite(t *testing.T) {
 		{
 			name: "ok",
 			args: args{
-				domain: "example.com",
+				Domain: "example.com",
 				config: &Config{},
 			},
 			want: &Site{
-				domain: "example.com",
+				Domain: "example.com",
 				config: &Config{
 					LogLevel:            "",
 					Listener:            "",
@@ -59,7 +59,7 @@ func TestNewSite(t *testing.T) {
 			tt.want.ctx = ctx.Request().Context()
 			tt.want.cache = cache
 			tt.want.redisC = redisClient
-			if got := NewSite(ctx.Request().Context(), tt.args.domain, tt.args.config, redisClient, cache); !reflect.DeepEqual(got, tt.want) {
+			if got := NewSite(ctx.Request().Context(), tt.args.Domain, tt.args.config, redisClient, cache); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewSite() = %v, want %v", got, tt.want)
 			}
 		})
@@ -68,7 +68,7 @@ func TestNewSite(t *testing.T) {
 
 func TestSite_appendPermitNumber(t *testing.T) {
 	type fields struct {
-		domain             string
+		Domain             string
 		config             *Config
 		permittedNumberKey string
 		currentNumberKey   string
@@ -135,7 +135,7 @@ func TestSite_appendPermitNumber(t *testing.T) {
 		},
 
 		{
-			name: "reset if not increase",
+			name: "reset if not Increase",
 			fields: fields{
 				config: &Config{
 					QueueEnableSec:   10,
@@ -159,7 +159,7 @@ func TestSite_appendPermitNumber(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:             tt.fields.domain,
+				Domain:             tt.fields.Domain,
 				ctx:                context.Background(),
 				redisC:             redisClient,
 				cache:              cache,
@@ -175,7 +175,7 @@ func TestSite_appendPermitNumber(t *testing.T) {
 
 			e := echo.New()
 
-			err := s.appendPermitNumber(e)
+			err := s.AppendPermitNumber(e)
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Site.appendPermitNumber() error = %v, wantErr %v", err, tt.wantErr)
@@ -218,7 +218,7 @@ func TestSite_appendPermitNumber(t *testing.T) {
 
 func TestSite_appendPermitNumberIfGetLock(t *testing.T) {
 	type fields struct {
-		domain                       string
+		Domain                       string
 		config                       *Config
 		permittedNumberKey           string
 		currentNumberKey             string
@@ -274,7 +274,7 @@ func TestSite_appendPermitNumberIfGetLock(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:                       tt.fields.domain,
+				Domain:                       tt.fields.Domain,
 				ctx:                          context.Background(),
 				redisC:                       redisClient,
 				cache:                        cache,
@@ -290,7 +290,7 @@ func TestSite_appendPermitNumberIfGetLock(t *testing.T) {
 			}
 
 			e := echo.New()
-			if err := s.appendPermitNumberIfGetLock(e); (err != nil) != tt.wantErr {
+			if err := s.AppendPermitNumberIfGetLock(e); (err != nil) != tt.wantErr {
 				t.Errorf("Site.appendPermitNumberIfGetLock() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !tt.wantErr {
@@ -309,7 +309,7 @@ func TestSite_appendPermitNumberIfGetLock(t *testing.T) {
 
 func TestSite_Reset(t *testing.T) {
 	type fields struct {
-		domain                       string
+		Domain                       string
 		config                       *Config
 		permittedNumberKey           string
 		appendPermittedNumberLockKey string
@@ -346,7 +346,7 @@ func TestSite_Reset(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:                       tt.fields.domain,
+				Domain:                       tt.fields.Domain,
 				ctx:                          context.Background(),
 				redisC:                       redisClient,
 				cache:                        cache,
@@ -380,9 +380,9 @@ func TestSite_Reset(t *testing.T) {
 	}
 }
 
-func TestSite_isEnabledQueue(t *testing.T) {
+func TestSite_IsEnabledQueue(t *testing.T) {
 	type fields struct {
-		domain             string
+		Domain             string
 		config             *Config
 		permittedNumberKey string
 	}
@@ -423,7 +423,7 @@ func TestSite_isEnabledQueue(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:             tt.fields.domain,
+				Domain:             tt.fields.Domain,
 				ctx:                context.Background(),
 				redisC:             redisClient,
 				cache:              cache,
@@ -435,13 +435,13 @@ func TestSite_isEnabledQueue(t *testing.T) {
 			}
 
 			for _, cache := range []bool{true, false} {
-				got, err := s.isEnabledQueue(cache)
+				got, err := s.IsEnabledQueue(cache)
 				if (err != nil) != tt.wantErr {
-					t.Errorf("Site.isEnabledQueue() error = %v, wantErr %v", err, tt.wantErr)
+					t.Errorf("Site.IsEnabledQueue() error = %v, wantErr %v", err, tt.wantErr)
 					return
 				}
 				if got != tt.want {
-					t.Errorf("Site.isEnabledQueue() = %v, want %v", got, tt.want)
+					t.Errorf("Site.IsEnabledQueue() = %v, want %v", got, tt.want)
 				}
 			}
 		})
@@ -450,7 +450,7 @@ func TestSite_isEnabledQueue(t *testing.T) {
 
 func TestSite_EnableQueue(t *testing.T) {
 	type fields struct {
-		domain             string
+		Domain             string
 		config             *Config
 		permittedNumberKey string
 	}
@@ -465,7 +465,7 @@ func TestSite_EnableQueue(t *testing.T) {
 		{
 			name: "ok",
 			fields: fields{
-				domain: testRandomString(10),
+				Domain: testRandomString(10),
 				config: &Config{
 					QueueEnableSec: 10,
 				},
@@ -477,20 +477,20 @@ func TestSite_EnableQueue(t *testing.T) {
 		{
 			name: "has cache",
 			fields: fields{
-				domain: testRandomString(10),
+				Domain: testRandomString(10),
 				config: &Config{
 					QueueEnableSec: 20,
 				},
 				permittedNumberKey: testRandomString(10),
 			},
 			beforeHook: func(s *Site, redisClient *redis.Client) {
-				cacheKey := s.domain + "_enable_cache"
+				cacheKey := s.Domain + "_enable_cache"
 				s.cache.Set(cacheKey, "1", time.Second*10)
 				redisClient.SetNX(s.ctx, s.permittedNumberKey, "10", 0)
 				redisClient.Expire(s.ctx, s.permittedNumberKey, time.Duration(10)*time.Second)
 				redisClient.ZAdd(s.ctx, EnableDomainKey, &redis.Z{
 					Score:  1,
-					Member: s.domain},
+					Member: s.Domain},
 				)
 			},
 			want:    "10",
@@ -502,13 +502,13 @@ func TestSite_EnableQueue(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:             tt.fields.domain,
+				Domain:             tt.fields.Domain,
 				ctx:                context.Background(),
 				redisC:             redisClient,
 				cache:              cache,
 				config:             tt.fields.config,
 				permittedNumberKey: tt.fields.permittedNumberKey,
-				cacheEnableKey:     tt.fields.domain + "_enable_cache",
+				cacheEnableKey:     tt.fields.Domain + "_enable_cache",
 			}
 
 			if tt.beforeHook != nil {
@@ -534,20 +534,20 @@ func TestSite_EnableQueue(t *testing.T) {
 			if ev.Val() != time.Duration(10)*time.Second {
 				t.Errorf("got ttl %v", ev.Val())
 			}
-			val, _ := redisClient.ZScan(context.Background(), EnableDomainKey, 0, tt.fields.domain, 1).Val()
+			val, _ := redisClient.ZScan(context.Background(), EnableDomainKey, 0, tt.fields.Domain, 1).Val()
 			if len(val) == 0 {
-				t.Errorf("%v is not enabled", tt.fields.domain)
+				t.Errorf("%v is not enabled", tt.fields.Domain)
 			}
-			if !s.cache.Exists(s.domain + "_enable_cache") {
-				t.Errorf("%v has not cache", tt.fields.domain)
+			if !s.cache.Exists(s.Domain + "_enable_cache") {
+				t.Errorf("%v has not cache", tt.fields.Domain)
 			}
 		})
 	}
 }
 
-func TestSite_isPermittedClient(t *testing.T) {
+func TestSite_IsPermittedClient(t *testing.T) {
 	type fields struct {
-		domain             string
+		Domain             string
 		config             *Config
 		permittedNumberKey string
 	}
@@ -622,7 +622,7 @@ func TestSite_isPermittedClient(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:             tt.fields.domain,
+				Domain:             tt.fields.Domain,
 				ctx:                context.Background(),
 				redisC:             redisClient,
 				cache:              cache,
@@ -634,19 +634,19 @@ func TestSite_isPermittedClient(t *testing.T) {
 				tt.beforeHook(tt.client, s, redisClient)
 			}
 
-			got, err := s.isPermittedClient(tt.client)
+			got, err := s.IsPermittedClient(tt.client)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Site.isPermittedClient() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Site.IsPermittedClient() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("Site.isPermittedClient() = %v, want %v", got, tt.want)
+				t.Errorf("Site.IsPermittedClient() = %v, want %v", got, tt.want)
 			}
 			// for not yet started
 			if tt.beforeHook == nil {
 				v, _ := s.cache.Get(tt.client.ID)
 				if v != "-1" {
-					t.Error("Site.isPermittedClient() not created cache")
+					t.Error("Site.IsPermittedClient() not created cache")
 				}
 			}
 
@@ -654,9 +654,9 @@ func TestSite_isPermittedClient(t *testing.T) {
 	}
 }
 
-func TestSite_incrCurrentNumber(t *testing.T) {
+func TestSite_IncrCurrentNumber(t *testing.T) {
 	type fields struct {
-		domain           string
+		Domain           string
 		config           *Config
 		currentNumberKey string
 	}
@@ -679,7 +679,7 @@ func TestSite_incrCurrentNumber(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "incr",
+			name: "Incr",
 			fields: fields{
 				config: &Config{
 					QueueEnableSec: 10,
@@ -698,7 +698,7 @@ func TestSite_incrCurrentNumber(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:           tt.fields.domain,
+				Domain:           tt.fields.Domain,
 				ctx:              context.Background(),
 				redisC:           redisClient,
 				cache:            cache,
@@ -709,13 +709,13 @@ func TestSite_incrCurrentNumber(t *testing.T) {
 			if tt.beforeHook != nil {
 				tt.beforeHook(s, redisClient)
 			}
-			got, err := s.incrCurrentNumber()
+			got, err := s.IncrCurrentNumber()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Site.incrCurrentNumber() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Site.IncrCurrentNumber() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("Site.incrCurrentNumber() = %v, want %v", got, tt.want)
+				t.Errorf("Site.IncrCurrentNumber() = %v, want %v", got, tt.want)
 			}
 			ev := redisClient.TTL(context.Background(), tt.fields.currentNumberKey)
 			if ev.Err() != nil {
@@ -731,7 +731,7 @@ func TestSite_incrCurrentNumber(t *testing.T) {
 
 func TestSite_currentPermitedNumber(t *testing.T) {
 	type fields struct {
-		domain             string
+		Domain             string
 		config             *Config
 		permittedNumberKey string
 	}
@@ -815,7 +815,7 @@ func TestSite_currentPermitedNumber(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:             tt.fields.domain,
+				Domain:             tt.fields.Domain,
 				ctx:                context.Background(),
 				redisC:             redisClient,
 				cache:              cache,
@@ -826,7 +826,7 @@ func TestSite_currentPermitedNumber(t *testing.T) {
 			if tt.beforeHook != nil {
 				tt.beforeHook(s, redisClient)
 			}
-			got, err := s.currentPermitedNumber(tt.useCache)
+			got, err := s.CurrentPermitedNumber(tt.useCache)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Site.currentPermitNumber() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -849,7 +849,7 @@ func TestSite_currentPermitedNumber(t *testing.T) {
 
 func TestSite_permitClient(t *testing.T) {
 	type fields struct {
-		domain             string
+		Domain             string
 		config             *Config
 		permittedNumberKey string
 	}
@@ -903,7 +903,7 @@ func TestSite_permitClient(t *testing.T) {
 			redisClient := testRedisClient()
 			cache := NewCache(redisClient, tt.fields.config)
 			s := &Site{
-				domain:             tt.fields.domain,
+				Domain:             tt.fields.Domain,
 				ctx:                context.Background(),
 				redisC:             redisClient,
 				cache:              cache,
@@ -915,7 +915,7 @@ func TestSite_permitClient(t *testing.T) {
 				tt.beforeHook(tt.client, s, redisClient)
 			}
 
-			got, err := s.permitClient(tt.client)
+			got, err := s.CheckAndPermitClient(tt.client)
 			if got != tt.want {
 				t.Errorf("Site.permitClient() = %v, want %v", got, tt.want)
 			}
@@ -930,7 +930,7 @@ func TestSite_permitClient(t *testing.T) {
 
 func TestSite_isSiteIsInWhitelist(t *testing.T) {
 	type fields struct {
-		domain string
+		Domain string
 		config *Config
 	}
 	tests := []struct {
@@ -943,7 +943,7 @@ func TestSite_isSiteIsInWhitelist(t *testing.T) {
 		{
 			name: "has not whitelist",
 			fields: fields{
-				domain: testRandomString(10),
+				Domain: testRandomString(10),
 				config: &Config{
 					CacheTTLSec: 10,
 				},
@@ -954,7 +954,7 @@ func TestSite_isSiteIsInWhitelist(t *testing.T) {
 		{
 			name: "is in whitelist",
 			fields: fields{
-				domain: testRandomString(10),
+				Domain: testRandomString(10),
 				config: &Config{
 					CacheTTLSec: 10,
 				},
@@ -973,26 +973,109 @@ func TestSite_isSiteIsInWhitelist(t *testing.T) {
 			redisC := testRedisClient()
 			cache := NewCache(redisC, tt.fields.config)
 			s := &Site{
-				domain: tt.fields.domain,
+				Domain: tt.fields.Domain,
 				ctx:    context.Background(),
 				redisC: redisC,
 				cache:  cache,
 				config: tt.fields.config,
 			}
 			if tt.beforeHook != nil {
-				tt.beforeHook(tt.fields.domain, redisC)
+				tt.beforeHook(tt.fields.Domain, redisC)
 			}
-			got, err := s.isInWhitelist()
+			got, err := s.IsInWhitelist()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Site.isInWhitelist() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Site.IsInWhitelist() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("Site.isInWhitelist() = %v, want %v", got, tt.want)
+				t.Errorf("Site.IsInWhitelist() = %v, want %v", got, tt.want)
 			}
 
-			if !cache.Exists(WhiteListKey + tt.fields.domain) {
-				t.Error("Site.isInWhitelist() have not cache")
+			if !cache.Exists(WhiteListKey + tt.fields.Domain) {
+				t.Error("Site.IsInWhitelist() have not cache")
+			}
+		})
+	}
+}
+
+func TestSite_AssignSerialNumber(t *testing.T) {
+	redisClient := testRedisClient()
+	type fields struct {
+		SerialNumber         int64
+		ID                   string
+		TakeSerialNumberTime int64
+		domain               string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		site    *Site
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				SerialNumber:         0,
+				ID:                   "dummy",
+				TakeSerialNumberTime: time.Now().Unix() - 1,
+				domain:               testRandomString(20),
+			},
+			site: &Site{
+				redisC: redisClient,
+				config: &Config{
+					QueueEnableSec: 10,
+				},
+				ctx:              context.Background(),
+				currentNumberKey: testRandomString(20),
+			},
+			want:    1,
+			wantErr: false,
+		},
+		{
+			name: "already have number",
+			fields: fields{
+				SerialNumber:         2,
+				ID:                   "dummy",
+				TakeSerialNumberTime: time.Now().Unix() - 1,
+			},
+			want:    2,
+			wantErr: false,
+		},
+		{
+			name: "first access",
+			fields: fields{
+				SerialNumber: 0,
+				ID:           "",
+			},
+			site: &Site{
+				config: &Config{
+					QueueEnableSec: 10,
+				},
+			},
+			want:    0,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{
+				SerialNumber:         tt.fields.SerialNumber,
+				ID:                   tt.fields.ID,
+				TakeSerialNumberTime: tt.fields.TakeSerialNumberTime,
+				secureCookie:         secureCookie,
+				domain:               tt.fields.domain,
+			}
+			got, err := tt.site.AssignSerialNumber(c)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Client.fillSerialNumber() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if c.TakeSerialNumberTime == 0 {
+				t.Error("Client.fillSerialNumber() take serial number time is zero")
+			}
+			if got != tt.want {
+				t.Errorf("Client.fillSerialNumber() = %v, want %v", got, tt.want)
 			}
 		})
 	}

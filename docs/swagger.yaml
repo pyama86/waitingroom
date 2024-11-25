@@ -4,7 +4,7 @@ definitions:
     properties:
       message: {}
     type: object
-  model.Queue:
+  waitingroom.Queue:
     properties:
       current_number:
         minimum: 0
@@ -17,7 +17,7 @@ definitions:
     required:
     - domain
     type: object
-  model.WhiteList:
+  waitingroom.WhiteList:
     properties:
       domain:
         type: string
@@ -29,7 +29,7 @@ info:
   description: API for WaitingRoom
   license:
     name: MIT
-    url: http://github.com/pyama86/ngx_waitingroom/LICENSE
+    url: http://github.com/pyama86/waitingroom/LICENSE
   title: WaitingRoomAPI
   version: "1.0"
 paths:
@@ -61,13 +61,13 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/model.Queue'
+              $ref: '#/definitions/waitingroom.Queue'
             type: array
         "404":
           description: Not Found
           schema:
             items:
-              $ref: '#/definitions/model.Queue'
+              $ref: '#/definitions/waitingroom.Queue'
             type: array
         "500":
           description: Internal Server Error
@@ -87,7 +87,7 @@ paths:
         name: queue
         required: true
         schema:
-          $ref: '#/definitions/model.Queue'
+          $ref: '#/definitions/waitingroom.Queue'
       produces:
       - application/json
       responses:
@@ -156,7 +156,7 @@ paths:
         name: queue
         required: true
         schema:
-          $ref: '#/definitions/model.Queue'
+          $ref: '#/definitions/waitingroom.Queue'
       produces:
       - application/json
       responses:
@@ -229,13 +229,13 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/model.WhiteList'
+              $ref: '#/definitions/waitingroom.WhiteList'
             type: array
         "404":
           description: Not Found
           schema:
             items:
-              $ref: '#/definitions/model.WhiteList'
+              $ref: '#/definitions/waitingroom.WhiteList'
             type: array
         "500":
           description: Internal Server Error
@@ -255,7 +255,7 @@ paths:
         name: whitelist
         required: true
         schema:
-          $ref: '#/definitions/model.WhiteList'
+          $ref: '#/definitions/waitingroom.WhiteList'
       produces:
       - application/json
       responses:

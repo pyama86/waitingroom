@@ -1,4 +1,4 @@
-package waitingroom
+package api
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-// NewError エラー構造体を初期化して返却します
-func NewError(statusCode int, err error, message string, params ...interface{}) *Error {
+// newError エラー構造体を初期化して返却します
+func newError(statusCode int, err error, message string, params ...interface{}) *Error {
 	if statusCode != http.StatusNotFound {
 		slog.Error(
 			"error",

@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
-	"github.com/pyama86/ngx_waitingroom/model"
-	"github.com/pyama86/ngx_waitingroom/waitingroom"
+	"github.com/pyama86/waitingroom/waitingroom"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -27,12 +27,12 @@ type HTTPError struct {
 // @Param domain query string false "Queue Domain"
 // @Param page query int false "page" minimum(1)
 // @Param per_page query int false "per_page" minimum(1)
-// @Success 200 {array} model.Queue
-// @Failure 404 {array} model.Queue
+// @Success 200 {array} waitingroom.Queue
+// @Failure 404 {array} waitingroom.Queue
 // @Failure 500 {object} api.HTTPError
 // @Router /queues [get]
 // @Tags queues
-func (h *queueHandler) getQueues(c echo.Context) error {
+func (h *queueHandler) GetQueues(c echo.Context) error {
 	page, perPage, err := paginate(c)
 	if err != nil {
 		slog.Error("pagenate error", slog.Any("error", err))
@@ -58,15 +58,15 @@ func (h *queueHandler) getQueues(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Param domain path string true "Queue Name"
-// @Param queue body model.Queue true "Queue Object"
+// @Param queue body waitingroom.Queue true "Queue Object"
 // @Success 200 "OK"
 // @Failure 403 {object} api.HTTPError
 // @Failure 404 {object} api.HTTPError
 // @Failure 500 {object} api.HTTPError
 // @Router /queues/{domain} [put]
 // @Tags queues
-func (h *queueHandler) updateQueueByName(c echo.Context) error {
-	q := &model.Queue{}
+func (h *queueHandler) UpdateQueueByName(c echo.Context) error {
+	q := &waitingroom.Queue{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -93,7 +93,7 @@ func (h *queueHandler) updateQueueByName(c echo.Context) error {
 // @Failure 500 {object} api.HTTPError
 // @Router /queues/{domain} [delete]
 // @Tags queues
-func (h *queueHandler) deleteQueueByName(c echo.Context) error {
+func (h *queueHandler) DeleteQueueByName(c echo.Context) error {
 	if err := h.queueModel.DeleteQueues(c.Request().Context(), c.Param("domain")); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -107,15 +107,15 @@ func (h *queueHandler) deleteQueueByName(c echo.Context) error {
 // @ID queues#post
 // @Accept  json
 // @Produce  json
-// @Param queue body model.Queue true "Queue Object"
+// @Param queue body waitingroom.Queue true "Queue Object"
 // @Success 201 "Created"
 // @Failure 403 {object} api.HTTPError
 // @Failure 404 {object} api.HTTPError
 // @Failure 500 {object} api.HTTPError
 // @Router /queues [post]
 // @Tags queues
-func (h *queueHandler) createQueue(c echo.Context) error {
-	q := &model.Queue{}
+func (h *queueHandler) CreateQueue(c echo.Context) error {
+	q := &waitingroom.Queue{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -130,18 +130,112 @@ func (h *queueHandler) createQueue(c echo.Context) error {
 }
 
 type queueHandler struct {
-	queueModel *model.QueueModel
+	queueModel  *waitingroom.QueueModel
+	sc          *securecookie.SecureCookie
+	cache       *waitingroom.Cache
+	redisClient *redis.Client
+	config      *waitingroom.Config
 }
 
-func NewQueueHandler(redisC *redis.Client, config *waitingroom.Config, cache *waitingroom.Cache) *queueHandler {
+func NewQueueHandler(
+	sc *securecookie.SecureCookie,
+	redisC *redis.Client,
+	config *waitingroom.Config,
+	cache *waitingroom.Cache,
+) *queueHandler {
 	return &queueHandler{
-		queueModel: model.NewQueueModel(redisC, config, cache),
+		sc:          sc,
+		queueModel:  waitingroom.NewQueueModel(redisC, config, cache),
+		redisClient: redisC,
+		config:      config,
+		cache:       cache,
 	}
 }
-func QueuesEndpoints(g *echo.Group, redisC *redis.Client, config *waitingroom.Config, cache *waitingroom.Cache) {
-	h := NewQueueHandler(redisC, config, cache)
-	g.GET("/queues", h.getQueues)
-	g.PUT("/queues/:domain", h.updateQueueByName)
-	g.DELETE("/queues/:domain", h.deleteQueueByName)
-	g.POST("/queues", h.createQueue)
+
+const paramDomainKey = "domain"
+
+type QueueResult struct {
+	ID                  string
+	Enabled             bool  `json:"enabled"`
+	PermittedClient     bool  `json:"permitted_client"`
+	SerialNo            int64 `json:"serial_no"`
+	PermittedNo         int64 `json:"permitted_no"`
+	RemainingWaitSecond int64 `json:"remaining_wait_second"`
+}
+
+func (p *queueHandler) Check(c echo.Context) error {
+
+	site := waitingroom.NewSite(c.Request().Context(), c.Param(paramDomainKey), p.config, p.redisClient, p.cache)
+
+	// 歴史的な経緯でGETでwaitingroomを有効にしているが、POSTで有効にするべき
+	if c.Param("enable") != "" {
+		if err := site.EnableQueue(); err != nil {
+			return newError(http.StatusInternalServerError, err, " can't enable queue")
+		}
+	} else {
+		ok, err := site.IsEnabledQueue(true)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, " can't get enable status")
+		}
+
+		if !ok {
+			return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+		}
+
+	}
+
+	// ホワイトリストに含まれているドメインならば即時許可応答する
+	ok, err := site.IsInWhitelist()
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't get whitelist")
+	}
+	if ok {
+		return c.JSON(http.StatusOK, QueueResult{Enabled: false, PermittedClient: false})
+	}
+
+	// 許可済みクライアントかどうかを判定する
+	client, err := waitingroom.NewClientByContext(c, p.sc)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't build info")
+	}
+	ok, err = site.IsPermittedClient(client)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't get permit status")
+	}
+
+	if ok {
+		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
+	}
+
+	clientSerialNumber, err := site.AssignSerialNumber(client)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't get serial no")
+	}
+
+	if err := client.SaveToCookie(c, p.config); err != nil {
+		return newError(http.StatusInternalServerError, err, "can't save client info")
+	}
+
+	if clientSerialNumber != 0 {
+		ok, err := site.CheckAndPermitClient(client)
+		if err != nil {
+			return newError(http.StatusInternalServerError, err, " can't jude permit access")
+		}
+		if ok {
+			return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
+		}
+	}
+
+	remaningWaitSecond, pn, err := site.CalcRemainingWaitSecond(client)
+	if err != nil {
+		return newError(http.StatusInternalServerError, err, " can't calc remaining wait second")
+	}
+	return c.JSON(http.StatusTooManyRequests, QueueResult{
+		ID:                  client.ID,
+		Enabled:             true,
+		PermittedClient:     false,
+		SerialNo:            client.SerialNumber,
+		PermittedNo:         pn,
+		RemainingWaitSecond: remaningWaitSecond,
+	})
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
-	"github.com/pyama86/ngx_waitingroom/model"
+	"github.com/pyama86/waitingroom/waitingroom"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -52,8 +52,8 @@ func paginate(c echo.Context) (int64, int64, error) {
 // @Param domain query string false "WhiteList Domain"
 // @Param page query int false "page" minimum(1)
 // @Param per_page query int false "per_page" minimum(1)
-// @Success 200 {array} model.WhiteList
-// @Failure 404 {array} model.WhiteList
+// @Success 200 {array} waitingroom.WhiteList
+// @Failure 404 {array} waitingroom.WhiteList
 // @Failure 500 {object} api.HTTPError
 // @Router /whitelist [get]
 // @Tags whitelist
@@ -103,7 +103,7 @@ func (h *whiteListHandler) deleteWhiteListByName(c echo.Context) error {
 // @ID whitelist#post
 // @Accept  json
 // @Produce  json
-// @Param whitelist body model.WhiteList true "WhiteList Object"
+// @Param whitelist body waitingroom.WhiteList true "WhiteList Object"
 // @Success 201 "Created"
 // @Failure 403 {object} api.HTTPError
 // @Failure 404 {object} api.HTTPError
@@ -111,7 +111,7 @@ func (h *whiteListHandler) deleteWhiteListByName(c echo.Context) error {
 // @Router /whitelist [post]
 // @Tags whitelist
 func (h *whiteListHandler) createWhiteList(c echo.Context) error {
-	q := &model.WhiteList{}
+	q := &waitingroom.WhiteList{}
 	if err := c.Bind(q); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -126,16 +126,16 @@ func (h *whiteListHandler) createWhiteList(c echo.Context) error {
 }
 
 type whiteListHandler struct {
-	whiteListModel *model.WhiteListModel
+	whiteListModel *waitingroom.WhiteListModel
 }
 
 func NewWhiteListHandler(redisC *redis.Client) *whiteListHandler {
 	return &whiteListHandler{
-		whiteListModel: model.NewWhiteListModel(redisC),
+		whiteListModel: waitingroom.NewWhiteListModel(redisC),
 	}
 }
 
-func WhiteListEndpoints(g *echo.Group, redisC *redis.Client) {
+func VironWhiteListEndpoints(g *echo.Group, redisC *redis.Client) {
 	h := NewWhiteListHandler(redisC)
 	g.GET("/whitelist", h.getWhiteList)
 	g.DELETE("/whitelist/:domain", h.deleteWhiteListByName)
