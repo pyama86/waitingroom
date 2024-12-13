@@ -1,4 +1,0 @@
-FROM ubuntu:latest
-
-COPY build/waitingroom /waitingroom
-CMD ["/waitingroom", "server", "--listener", "0.0.0.0:18080", "--log-level", "debug", "--config", "/etc/waitingroom/waitingroom.toml"]

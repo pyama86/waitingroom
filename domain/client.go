@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
 )
@@ -71,4 +72,29 @@ func (c *Client) SaveToCookie(ctx echo.Context, config *Config) error {
 		HttpOnly: true,
 	})
 	return nil
+}
+func (c *Client) AssignID(delaySec int64) error {
+	u, err := uuid.NewRandom()
+	if err != nil {
+		return err
+	}
+	c.ID = u.String()
+	c.TakeSerialNumberTime = time.Now().Unix() + delaySec
+	c.SerialNumber = 0
+	return nil
+}
+func (c *Client) AssignSerialNumber(sn int64) {
+	c.SerialNumber = sn
+}
+
+func (c *Client) HasID() bool {
+	return c.ID != ""
+}
+
+func (c *Client) IsPermitClient(an int64) bool {
+	return c.SerialNumber != 0 && an >= c.SerialNumber
+}
+
+func (c *Client) HasSerialNumber() bool {
+	return c.SerialNumber != 0 && c.ID != ""
 }

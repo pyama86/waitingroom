@@ -40,7 +40,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"github.com/pyama86/waitingroom/api"
 	"github.com/pyama86/waitingroom/docs"
-	"github.com/pyama86/waitingroom/waitingroom"
+	waitingroom "github.com/pyama86/waitingroom/domain"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -206,7 +206,6 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 	}
 
 	e.Use(middleware.Recover())
-	cache := waitingroom.NewCache(redisc, config)
 
 	e.GET("/status", func(c echo.Context) error {
 		_, err := redisc.Ping(ctx).Result()
@@ -220,7 +219,6 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		secureCookie,
 		redisc,
 		config,
-		cache,
 	)
 
 	e.GET("/queues/:domain", h.Check)
@@ -264,7 +262,6 @@ func runServer(cmd *cobra.Command, config *waitingroom.Config) error {
 		ac := waitingroom.NewAccessController(
 			config,
 			redisc,
-			cache,
 		)
 		for {
 			if err := ac.Do(ctx, e); err != nil && err != redis.Nil {

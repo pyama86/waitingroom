@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
-	"github.com/pyama86/waitingroom/waitingroom"
+	waitingroom "github.com/pyama86/waitingroom/domain"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 

@@ -2,15 +2,14 @@ package waitingroom
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/pyama86/waitingroom/repository"
 )
 
 type QueueModel struct {
-	redisC *redis.Client
+	wr     *Waitingroom
 	config *Config
-	cache  *Cache
 }
 type Queue struct {
 	Domain          string `json:"domain" validate:"required,fqdn"`
@@ -18,25 +17,33 @@ type Queue struct {
 	PermitetdNumber int64  `json:"permitted_number" validate:"gte=0"`
 }
 
-func NewQueueModel(r *redis.Client, config *Config, cache *Cache) *QueueModel {
+func NewQueueModel(r *redis.Client, config *Config) *QueueModel {
+	repo := repository.NewWaitingroomRepository(r)
+	wr := NewWaitingroom(config, repo)
+
 	return &QueueModel{
-		redisC: r,
-		cache:  cache,
 		config: config,
+		wr:     wr,
 	}
 }
 func (q *QueueModel) GetQueues(ctx context.Context, perPage, page int64) ([]Queue, int64, error) {
-	domains, err := q.redisC.ZRange(ctx, EnableDomainKey, perPage*(page-1), page*perPage).Result()
+	domains, err := q.wr.GetEnableDomains(ctx,
+		&DomainsParam{
+			PerPage: perPage * (page - 1),
+			Page:    page * perPage,
+		},
+	)
+
 	if err != nil {
 		return nil, 0, err
 	}
 	ret := []Queue{}
 	for _, domain := range domains {
-		cn, err := q.redisC.Get(ctx, domain+SuffixCurrentNo).Int64()
+		cn, err := q.wr.GetCurrentNumber(ctx, domain)
 		if err != nil {
 			return nil, 0, err
 		}
-		pn, err := q.redisC.Get(ctx, domain+SuffixPermittedNo).Int64()
+		pn, err := q.wr.GetCurrentPermitNumber(ctx, domain)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -47,21 +54,23 @@ func (q *QueueModel) GetQueues(ctx context.Context, perPage, page int64) ([]Queu
 			Domain:          domain,
 		})
 	}
-	total := q.redisC.ZCount(ctx, EnableDomainKey, "-inf", "+inf").Val()
+	total, err := q.wr.GetEnableDomainsCount(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	return ret, total, nil
 }
 
 func (q *QueueModel) UpdateQueues(ctx context.Context, m *Queue) error {
-	err := q.redisC.Expire(ctx, EnableDomainKey, time.Duration(q.config.QueueEnableSec*2)*time.Second).Err()
-	if err != nil {
+	if err := q.wr.ExtendDomainsTTL(ctx); err != nil {
 		return err
 	}
-	err = q.redisC.SetEX(ctx, m.Domain+SuffixCurrentNo, m.CurrentNumber, time.Duration(q.config.QueueEnableSec)*time.Second).Err()
-	if err != nil {
+
+	if err := q.wr.SaveCurrentNumber(ctx, m.Domain, m.CurrentNumber); err != nil {
 		return err
 	}
-	err = q.redisC.Set(ctx, m.Domain+SuffixPermittedNo, m.PermitetdNumber, time.Duration(q.config.QueueEnableSec)*time.Second).Err()
-	if err != nil {
+
+	if err := q.wr.SaveCurrentPermitNumber(ctx, m.Domain, m.PermitetdNumber); err != nil {
 		return err
 	}
 
@@ -69,19 +78,17 @@ func (q *QueueModel) UpdateQueues(ctx context.Context, m *Queue) error {
 }
 
 func (q *QueueModel) CreateQueues(ctx context.Context, m *Queue) error {
-	site := NewSite(ctx, m.Domain, q.config, q.redisC, q.cache)
-	if err := site.EnableQueue(); err != nil {
+	if err := q.wr.EnableQueue(ctx, m.Domain); err != nil {
 		return err
 	}
 	return q.UpdateQueues(ctx, m)
 }
 func (q *QueueModel) DeleteQueues(ctx context.Context, domain string) error {
-	site := NewSite(ctx, domain, q.config, q.redisC, q.cache)
-	return site.Reset()
+	return q.wr.Reset(ctx, domain)
 }
 
 type WhiteListModel struct {
-	redisC *redis.Client
+	wr *Waitingroom
 }
 
 type WhiteList struct {
@@ -89,12 +96,19 @@ type WhiteList struct {
 }
 
 func NewWhiteListModel(r *redis.Client) *WhiteListModel {
+	repo := repository.NewWaitingroomRepository(r)
+	wr := NewWaitingroom(&Config{}, repo)
 	return &WhiteListModel{
-		redisC: r,
+		wr: wr,
 	}
 }
 func (q *WhiteListModel) GetWhiteList(ctx context.Context, perPage, page int64) ([]WhiteList, int64, error) {
-	members, err := q.redisC.ZRange(ctx, WhiteListKey, perPage*(page-1), page*perPage).Result()
+	members, err := q.wr.GetWhiteListDomains(ctx,
+		&DomainsParam{
+			PerPage: perPage * (page - 1),
+			Page:    page * perPage,
+		},
+	)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -103,17 +117,17 @@ func (q *WhiteListModel) GetWhiteList(ctx context.Context, perPage, page int64) 
 		ret = append(ret, WhiteList{Domain: m})
 	}
 
-	total := q.redisC.ZCount(ctx, WhiteListKey, "-inf", "+inf").Val()
+	total, err := q.wr.GetWhiteListDomainsCount(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	return ret, total, nil
 }
 
 func (q *WhiteListModel) CreateWhiteList(ctx context.Context, domain string) error {
-	if err := q.redisC.ZAdd(ctx, WhiteListKey, &redis.Z{Score: 1, Member: domain}).Err(); err != nil {
-		return err
-	}
-	return q.redisC.Persist(ctx, WhiteListKey).Err()
+	return q.wr.AddWhiteListDomain(ctx, domain)
 }
 
 func (q *WhiteListModel) DeleteWhiteList(ctx context.Context, domain string) error {
-	return q.redisC.ZRem(ctx, WhiteListKey, domain).Err()
+	return q.wr.RemoveWhiteListDomain(ctx, domain)
 }
