@@ -284,7 +284,7 @@ func (s *Waitingroom) currentPermitedNumber(ctx context.Context, domain string) 
 	}
 
 	if cn == -1 {
-		s.currentPermitNumberCache.Set(domain, 0, time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
+		s.currentPermitNumberCache.Set(domain, -1, time.Duration(s.config.NegativeCacheTTLSec)*time.Second)
 		return -1, nil
 	}
 
