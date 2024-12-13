@@ -2,9 +2,10 @@ package testutils
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"os"
 
 	"net/http/httptest"
@@ -46,7 +47,11 @@ func TestRandomString(n int) string {
 
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterRunes))))
+		if err != nil {
+			panic(err)
+		}
+		b[i] = letterRunes[num.Int64()]
 	}
 	return string(b)
 }
