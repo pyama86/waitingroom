@@ -1,25 +1,31 @@
-package waitingroom
+package testutils
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
 	"math/rand"
-	"net/http/httptest"
 	"os"
 
+	"net/http/httptest"
+
 	"github.com/go-redis/redis/v8"
+
+	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
 )
 
-func init() {
-	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	slog.SetDefault(logger)
-
+func TestRedisClient() *redis.Client {
+	redisHost := "127.0.0.1"
+	if os.Getenv("REDIS_HOST") != "" {
+		redisHost = os.Getenv("REDIS_HOST")
+	}
+	return redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%d", redisHost, 6379),
+	})
 }
-func testContext(path, method string, params map[string]string) (echo.Context, *httptest.ResponseRecorder) {
+
+func TestContext(path, method string, params map[string]string) (echo.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
 	postBody, _ := json.Marshal(params)
 
@@ -30,17 +36,12 @@ func testContext(path, method string, params map[string]string) (echo.Context, *
 	return ctx, rec
 }
 
-func testRedisClient() *redis.Client {
-	redisHost := "127.0.0.1"
-	if os.Getenv("REDIS_HOST") != "" {
-		redisHost = os.Getenv("REDIS_HOST")
-	}
-	return redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%d", redisHost, 6379),
-	})
-}
+var SecureCookie = securecookie.New(
+	securecookie.GenerateRandomKey(64),
+	securecookie.GenerateRandomKey(32),
+)
 
-func testRandomString(n int) string {
+func TestRandomString(n int) string {
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 	b := make([]rune, n)

@@ -29,3 +29,14 @@ devdeps:
 
 swag:
 	swag i
+
+.PHONY: generate_mock
+## generate_mock: generate mocks
+generate_mock: mockgen
+	mockgen -package=repository -source=./repository/waitingroom.go -destination=./repository/waitingroom_mock.go WaitingroomRepositoryer
+	mockgen -package=repository -source=./repository/cluster.go -destination=./repository/cluster_mock.go ClusterRepositoryer
+
+.PHONY: mockgen
+mockgen:
+	which mockgen || go install github.com/golang/mock/mockgen@latest
+

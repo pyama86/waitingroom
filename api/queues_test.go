@@ -9,17 +9,17 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
-	"github.com/pyama86/waitingroom/waitingroom"
+	waitingroom "github.com/pyama86/waitingroom/domain"
+	"github.com/pyama86/waitingroom/repository"
+	"github.com/pyama86/waitingroom/testutils"
 )
 
 func TestQueues_Check(t *testing.T) {
-	redisClient := testRedisClient()
-	cache := waitingroom.NewCache(redisClient, &waitingroom.Config{})
+	redisClient := testutils.TestRedisClient()
 	type fields struct {
 		sc          *securecookie.SecureCookie
-		cache       *waitingroom.Cache
-		redisClient *redis.Client
 		config      *waitingroom.Config
+		redisClient *redis.Client
 	}
 	tests := []struct {
 		name              string
@@ -34,9 +34,8 @@ func TestQueues_Check(t *testing.T) {
 		{
 			name: "now queue and delay take number",
 			fields: fields{
-				sc:          secureCookie,
+				sc:          testutils.SecureCookie,
 				redisClient: redisClient,
-				cache:       cache,
 				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
@@ -48,8 +47,8 @@ func TestQueues_Check(t *testing.T) {
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 0, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_current_no", 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_permitted_no", 0, 10*time.Second)
 			},
 			expect: func(t *testing.T, c *waitingroom.Client, r *redis.Client) {
 				if c.ID == "" {
@@ -69,9 +68,8 @@ func TestQueues_Check(t *testing.T) {
 		{
 			name: "now queue and take number",
 			fields: fields{
-				sc:          secureCookie,
+				sc:          testutils.SecureCookie,
 				redisClient: redisClient,
-				cache:       cache,
 				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
@@ -80,14 +78,14 @@ func TestQueues_Check(t *testing.T) {
 				},
 			},
 			client: waitingroom.Client{
-				ID:                   testRandomString(20),
+				ID:                   testutils.TestRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
 			wantStatus: http.StatusTooManyRequests,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 31, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_current_no", 31, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_permitted_no", 1, 10*time.Second)
 			},
 			expect: func(t *testing.T, c *waitingroom.Client, r *redis.Client) {
 				if c.ID == "" {
@@ -108,9 +106,8 @@ func TestQueues_Check(t *testing.T) {
 		{
 			name: "queue isn't start",
 			fields: fields{
-				sc:          secureCookie,
+				sc:          testutils.SecureCookie,
 				redisClient: redisClient,
-				cache:       cache,
 				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
@@ -131,9 +128,8 @@ func TestQueues_Check(t *testing.T) {
 		{
 			name: "permit access",
 			fields: fields{
-				sc:          secureCookie,
+				sc:          testutils.SecureCookie,
 				redisClient: redisClient,
-				cache:       cache,
 				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
@@ -143,14 +139,14 @@ func TestQueues_Check(t *testing.T) {
 			},
 			client: waitingroom.Client{
 				SerialNumber:         1,
-				ID:                   testRandomString(20),
+				ID:                   testutils.TestRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
 			wantStatus: http.StatusOK,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_current_no", 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_permitted_no", 1, 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
 				Enabled:         true,
@@ -162,9 +158,8 @@ func TestQueues_Check(t *testing.T) {
 		{
 			name: "is in whitelist",
 			fields: fields{
-				sc:          secureCookie,
+				sc:          testutils.SecureCookie,
 				redisClient: redisClient,
-				cache:       cache,
 				config: &waitingroom.Config{
 					EntryDelaySec:      10,
 					PermittedAccessSec: 10,
@@ -173,16 +168,16 @@ func TestQueues_Check(t *testing.T) {
 				},
 			},
 			client: waitingroom.Client{
-				ID:                   testRandomString(20),
+				ID:                   testutils.TestRandomString(20),
 				TakeSerialNumberTime: time.Now().Unix() - 1,
 			},
 			wantErr:    false,
 			wantStatus: http.StatusOK,
 			beforeHook: func(key string, redisClient *redis.Client) {
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixCurrentNo, 1, 10*time.Second)
-				redisClient.SetEX(context.Background(), key+waitingroom.SuffixPermittedNo, 1, 10*time.Second)
-				redisClient.ZAdd(context.Background(), waitingroom.WhiteListKey, &redis.Z{Member: key, Score: 1})
-				redisClient.Expire(context.Background(), waitingroom.WhiteListKey, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_current_no", 1, 10*time.Second)
+				redisClient.SetEX(context.Background(), key+"_permitted_no", 1, 10*time.Second)
+				redisClient.ZAdd(context.Background(), "queue-whitelist", &redis.Z{Member: key, Score: 1})
+				redisClient.Expire(context.Background(), "queue-whitelist", 10*time.Second)
 			},
 			expectQueueResult: QueueResult{
 				Enabled:         false,
@@ -194,20 +189,21 @@ func TestQueues_Check(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			repo := repository.NewWaitingroomRepository(redisClient)
+			wr := waitingroom.NewWaitingroom(tt.fields.config, repo)
 			p := &queueHandler{
-				sc:          tt.fields.sc,
-				cache:       tt.fields.cache,
-				redisClient: tt.fields.redisClient,
-				config:      tt.fields.config,
+				sc:     tt.fields.sc,
+				config: tt.fields.config,
+				wr:     wr,
 			}
 
-			domain := testRandomString(20)
-			c, rec := testContext("/", http.MethodPost, map[string]string{})
+			domain := testutils.TestRandomString(20)
+			c, rec := testutils.TestContext("/", http.MethodPost, map[string]string{})
 			c.SetPath("/queues/:domain")
 			c.SetParamNames("domain")
 			c.SetParamValues(domain)
 			defer rec.Result().Body.Close()
-			encoded, err := secureCookie.Encode(waitingroom.ClientCookieKey, tt.client)
+			encoded, err := testutils.SecureCookie.Encode(waitingroom.ClientCookieKey, tt.client)
 			if err != nil {
 				panic(err)
 			}
@@ -236,7 +232,7 @@ func TestQueues_Check(t *testing.T) {
 				parser := &http.Request{Header: http.Header{"Cookie": rec.Header()["Set-Cookie"]}}
 				cookie, _ := parser.Cookie(waitingroom.ClientCookieKey)
 				got := waitingroom.Client{}
-				secureCookie.Decode(waitingroom.ClientCookieKey,
+				testutils.SecureCookie.Decode(waitingroom.ClientCookieKey,
 					cookie.Value,
 					&got)
 

@@ -8,7 +8,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
 	"github.com/labstack/echo/v4"
-	"github.com/pyama86/waitingroom/waitingroom"
+	waitingroom "github.com/pyama86/waitingroom/domain"
+	"github.com/pyama86/waitingroom/repository"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -130,25 +131,24 @@ func (h *queueHandler) CreateQueue(c echo.Context) error {
 }
 
 type queueHandler struct {
-	queueModel  *waitingroom.QueueModel
-	sc          *securecookie.SecureCookie
-	cache       *waitingroom.Cache
-	redisClient *redis.Client
-	config      *waitingroom.Config
+	queueModel *waitingroom.QueueModel
+	sc         *securecookie.SecureCookie
+	config     *waitingroom.Config
+	wr         *waitingroom.Waitingroom
 }
 
 func NewQueueHandler(
 	sc *securecookie.SecureCookie,
 	redisC *redis.Client,
 	config *waitingroom.Config,
-	cache *waitingroom.Cache,
 ) *queueHandler {
+	repo := repository.NewWaitingroomRepository(redisC)
+	wr := waitingroom.NewWaitingroom(config, repo)
 	return &queueHandler{
-		sc:          sc,
-		queueModel:  waitingroom.NewQueueModel(redisC, config, cache),
-		redisClient: redisC,
-		config:      config,
-		cache:       cache,
+		sc:         sc,
+		wr:         wr,
+		queueModel: waitingroom.NewQueueModel(redisC, config),
+		config:     config,
 	}
 }
 
@@ -165,15 +165,14 @@ type QueueResult struct {
 
 func (p *queueHandler) Check(c echo.Context) error {
 
-	site := waitingroom.NewSite(c.Request().Context(), c.Param(paramDomainKey), p.config, p.redisClient, p.cache)
-
 	// 歴史的な経緯でGETでwaitingroomを有効にしているが、POSTで有効にするべき
 	if c.Param("enable") != "" {
-		if err := site.EnableQueue(); err != nil {
+		if err := p.wr.EnableQueue(c.Request().Context(),
+			c.Param(paramDomainKey)); err != nil {
 			return newError(http.StatusInternalServerError, err, " can't enable queue")
 		}
 	} else {
-		ok, err := site.IsEnabledQueue(true)
+		ok, err := p.wr.IsEnabledQueue(c.Request().Context(), c.Param(paramDomainKey))
 		if err != nil {
 			return newError(http.StatusInternalServerError, err, " can't get enable status")
 		}
@@ -185,7 +184,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 	}
 
 	// ホワイトリストに含まれているドメインならば即時許可応答する
-	ok, err := site.IsInWhitelist()
+	ok, err := p.wr.IsInWhitelist(c.Request().Context(), c.Param(paramDomainKey))
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get whitelist")
 	}
@@ -198,7 +197,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't build info")
 	}
-	ok, err = site.IsPermittedClient(client)
+	ok, err = p.wr.IsPermittedClient(c.Request().Context(), client)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get permit status")
 	}
@@ -207,7 +206,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 	}
 
-	clientSerialNumber, err := site.AssignSerialNumber(client)
+	clientSerialNumber, err := p.wr.AssignSerialNumber(c.Request().Context(), c.Param(paramDomainKey), client)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get serial no")
 	}
@@ -217,7 +216,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 	}
 
 	if clientSerialNumber != 0 {
-		ok, err := site.CheckAndPermitClient(client)
+		ok, err := p.wr.CheckAndPermitClient(c.Request().Context(), c.Param(paramDomainKey), client)
 		if err != nil {
 			return newError(http.StatusInternalServerError, err, " can't jude permit access")
 		}
@@ -226,7 +225,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		}
 	}
 
-	remaningWaitSecond, pn, err := site.CalcRemainingWaitSecond(client)
+	remaningWaitSecond, pn, err := p.wr.CalcRemainingWaitSecond(c.Request().Context(), c.Param(paramDomainKey), client)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't calc remaining wait second")
 	}
