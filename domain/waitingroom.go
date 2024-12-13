@@ -330,13 +330,13 @@ func (s *Waitingroom) AssignSerialNumber(ctx context.Context, domain string, c *
 	return c.SerialNumber, nil
 }
 
-func (s *Waitingroom) CalcRemainingWaitSecond(ctx context.Context, domain string, c *Client) (int64, int64, error) {
+func (s *Waitingroom) CalcRemainingWaitSecond(ctx context.Context, domain string, serialNumber int64) (int64, int64, error) {
 	remainingWaitSecond := int64(0)
 	cp, err := s.currentPermitedNumber(ctx, domain)
 	if err != nil {
 		return 0, 0, err
 	}
-	waitDiff := c.SerialNumber - cp
+	waitDiff := serialNumber - cp
 	if waitDiff > 0 {
 		if waitDiff%s.config.PermitUnitNumber == 0 {
 			remainingWaitSecond = waitDiff / s.config.PermitUnitNumber * int64(s.config.PermitIntervalSec)

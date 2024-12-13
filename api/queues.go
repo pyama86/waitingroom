@@ -206,7 +206,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return c.JSON(http.StatusOK, QueueResult{ID: client.ID, Enabled: true, PermittedClient: true})
 	}
 
-	clientSerialNumber, err := p.wr.AssignSerialNumber(c.Request().Context(), c.Param(paramDomainKey), client)
+	serialNumber, err := p.wr.AssignSerialNumber(c.Request().Context(), c.Param(paramDomainKey), client)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't get serial no")
 	}
@@ -215,7 +215,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		return newError(http.StatusInternalServerError, err, "can't save client info")
 	}
 
-	if clientSerialNumber != 0 {
+	if client.HasSerialNumber() {
 		ok, err := p.wr.CheckAndPermitClient(c.Request().Context(), c.Param(paramDomainKey), client)
 		if err != nil {
 			return newError(http.StatusInternalServerError, err, " can't jude permit access")
@@ -225,7 +225,7 @@ func (p *queueHandler) Check(c echo.Context) error {
 		}
 	}
 
-	remaningWaitSecond, pn, err := p.wr.CalcRemainingWaitSecond(c.Request().Context(), c.Param(paramDomainKey), client)
+	remaningWaitSecond, pn, err := p.wr.CalcRemainingWaitSecond(c.Request().Context(), c.Param(paramDomainKey), serialNumber)
 	if err != nil {
 		return newError(http.StatusInternalServerError, err, " can't calc remaining wait second")
 	}
